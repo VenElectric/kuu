@@ -78,7 +78,7 @@ proc executeString*(vm: var VM, contents: string) =
 
     chunk.writeChunk(uint8(opReturn), 1)
     chunk.writeChunk(1'u8, 1)
-    #disassembleChunk(chunk,"<main>")
+    
 
 
     interpret(vm, chunk)

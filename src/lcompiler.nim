@@ -1,5 +1,5 @@
 import std/[tables,logging]
-import lparse, llex, lvalue, lerror, ltypes
+import lparse, llex, lvalue, lerror, ltypes,ldebug
 
 proc compile*(c: var Compiler, node: Node, chunk: var Chunk, line: int)
 
@@ -420,9 +420,10 @@ proc compile*(c: var Compiler, node: Node, chunk: var Chunk, line: int) =
     let thenJump = chunk.emitJump(opJumpIfFalse, node.line)
 
     # 3. True path: pop the condition, run 'then'
+    c.beginScope()
     chunk.writeChunk(uint8(opPop), node.line)
     c.compile(node.thenBranch, chunk, node.line)
-
+    c.endScope(chunk, node.line)
     # 4. After 'then' finishes, unconditionally skip over the else branch
     let elseJump = chunk.emitJump(opJump, node.line)
 
@@ -432,8 +433,9 @@ proc compile*(c: var Compiler, node: Node, chunk: var Chunk, line: int) =
 
     # 6. Compile whatever's in elseBranch, if anything
     if node.elseBranch != nil:
+      c.beginScope()
       c.compile(node.elseBranch, chunk, node.line)
-
+      c.endScope(chunk, node.line)
       # 7. True path lands here, having skipped the else branch entirely
     chunk.patchJump(elseJump)
   of nkCall:
@@ -512,7 +514,6 @@ proc compile*(c: var Compiler, node: Node, chunk: var Chunk, line: int) =
     fnChunk.writeChunk(nilIdx, node.line)
     fnChunk.writeChunk(uint8(opReturn), node.line)
     fnChunk.writeChunk(1'u8, node.line)
-
     # 4/5. Add function prototype to outer chunk's constant pool
     let constIdx = chunk.addConstant(wrapLuaClosure(luaFn))
 

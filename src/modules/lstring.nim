@@ -117,8 +117,35 @@ proc luaStrSplit(args: varargs[LuaValue]): seq[LuaValue] =
   var sep = ","
   if len(args) == 2 and isString(args[1]):
     sep = getString(args[1])
+  var tab = newLuaTable()
+  var idx = 1
   for s in split(str,sep):
-    result.add(newLuaString(s))
+    tab.tval[newLuaInteger(idx)] = newLuaString(s)
+    inc(idx)
+  return @[tab]
+
+proc luaStrSub(args: varargs[LuaValue]): seq[LuaValue] = 
+  if len(args) < 2:
+    raise newException(LuaRuntimeError,moduleArgNumErrorFmt("sub","2 or 3"))
+  if not isString(args[0]):
+    raise newException(LuaRuntimeError,moduleArgKindErrorFmt(1,"sub","string"))
+  if not isNumber(args[1]):
+    raise newException(LuaRuntimeError,moduleArgKindErrorFmt(2,"sub","integer or number"))
+  let str = getString(args[0])
+  var sPos = intVal(args[1])
+  var ePos = len(str) - 1
+  if sPos < 0:
+    sPos = len(str) + sPos
+  if len(args) == 3 and isNumber(args[2]):
+    ePos = intVal(args[2])
+
+  if ePos == 0:
+    ePos = len(str) - 1
+  elif ePos < 0:
+    ePos = len(str) + ePos
+
+  return @[newLuaString(str[sPos..ePos])]
+  
 
 proc resolveFindInit(initArg: int64, len: int): int =
   # returns a 0-based Nim start index, or -1 meaning "no match is possible"
@@ -325,6 +352,7 @@ proc newStringLib*(): LuaValue =
   result.tval[newLuaString("match")] = newNimFn(luaStrMatch)
   result.tval[newLuaString("gmatch")] = newNimFn(luaStrGmatch)
   result.tval[newLuaString("gsub")] = newNimFnVM(luaStrGSub)
+  result.tval[newLuaString("sub")] = newNimFn(luaStrSub)
   result.tval[newLuaString("split")] = newNimFn(luaStrSplit)
   
 

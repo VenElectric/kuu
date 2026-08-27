@@ -30,12 +30,12 @@ proc main() =
     echo "Usage: kuu [options] <script.lua>"
     echo "Options:"
     echo "  -t, --trace    Enable opcode instruction tracing"
+    echo "  -v, --version  Get version"
     quit(1)
 
-  # Initialize and configure the VM
+  
   var vm = newVm(enableTrace)
-  # Optional: If trace is enabled, ensure the console logger shows Debug messages
-  # (Assuming your default console logger threshold was lvlInfo)
+  
   if enableTrace:
     setLogFilter(lvlDebug)
   try:

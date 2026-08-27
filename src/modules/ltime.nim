@@ -20,9 +20,6 @@ const DATEFMT = "ddd MMM d HH:mm:ss yyyy"
 proc luaClock(args:varargs[LuaValue]): seq[LuaValue] = 
   result = @[newLuaNumber(cpuTime())]
 
-# year, month, day required
-# hour = 12, minutes (min) = 0, seconds (sec) = 0, isdst = nil
-
 proc getMonthEnum(v:int64): Month = 
   case v
   of 1: mJan

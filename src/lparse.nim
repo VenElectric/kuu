@@ -645,9 +645,11 @@ proc parsePrimary(vp): Node =
     var fields: seq[tuple[key: Node, val: Node]] = @[]
     if not vp.check(tkRightBrace):
       while true:
+        if vp.check(tkRightBrace):
+          break # trailing , i.e. { name = "value",}
         var keyNode: Node
         var valNode: Node
-
+        
         # Check if it's a field assignment like { name = "value" }
         if vp.check(tkIdent) and vp.tokens[vp.current + 1].kind == tkAssign:
           let keyName = vp.advance().lexeme
@@ -672,12 +674,12 @@ proc parsePrimary(vp): Node =
   elif vp.match(tkFunction):
     let defLine = vp.previous().line
     vp.consume(tkLeftParen, "Expected '(' after function keyword.")
-
     var parameters: seq[string] = @[]
     if not vp.check(tkRightParen):
       while true:
+        echo "While loop: ",vp.previous().lexeme
         if not vp.match(tkIdent):
-          raise newException(LuaSyntaxError, "Syntax Error: Expected parameter name.")
+          raise newException(LuaSyntaxError, "Line: " & $defLine & " Expected parameter name.")
         parameters.add(vp.previous().lexeme)
         if not vp.match(tkComma):
           break
@@ -733,7 +735,6 @@ proc parseStatement(vp): Node =
   of tkLocal, tkGlobal:
     return vp.parseVarDecl()
   of tkIdent:
-    let startPos = vp.current
     let expr = vp.parseCall()
 
     if vp.peek().kind == tkComma and expr.kind == nkIdent:
