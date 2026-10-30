@@ -1,5 +1,5 @@
 import std/tables
-import ../ltypes, ../lvalue, ../lerror
+import ../ltypes, ../lvalue, ../lerror,../lutil
 
 proc luaSetAdd(args: varargs[LuaValue]): seq[LuaValue] =
   if args.len < 2:

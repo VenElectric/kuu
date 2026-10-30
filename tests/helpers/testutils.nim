@@ -25,7 +25,7 @@ proc runLua*(source: string,moduleFlags:set[ModuleFlags] = ALLMODULES): string =
   compiler.compile(ast, chunk, 1)
   chunk.writeChunk(uint8(opReturn), 1)
   chunk.writeChunk(0'u8, 1)
-  var vm = newVM(false,moduleFlags)
+  var vm = newVM(false,false,moduleFlags)
   vm.output = newStringStream()
   interpret(vm, chunk)
   result = StringStream(vm.output).data
@@ -43,7 +43,7 @@ proc runLuaVM*(source: string,moduleFlags:set[ModuleFlags] = ALLMODULES): (strin
   chunk.writeChunk(uint8(opReturn), 1)
   chunk.writeChunk(0'u8, 1)
 
-  var vm = newVM(false,moduleFlags)
+  var vm = newVM(false,false,moduleFlags)
   vm.output = newStringStream()
   interpret(vm, chunk)
   result = (StringStream(vm.output).data, vm)

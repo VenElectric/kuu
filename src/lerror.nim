@@ -7,3 +7,8 @@ type
     line*: int
   LuaExitError* = object of LuaError
     code*: int
+
+
+proc raiseLuaException*(cond:bool,exc:typedesc[LuaError],msg:string) =
+  if cond:
+    raise newException(exc,msg)

@@ -56,6 +56,7 @@ proc interpret*(vm: var VM, chunk: var Chunk) =
   vm.openUnicode()
   vm.openJson()
   vm.openNet()
+  vm.openTest()
 
   let mainVal = newLuaClosure("<main>", 0, chunk)
   vm.stack.add(wrapLuaClosure(mainVal))   # slot 0: the closure itself

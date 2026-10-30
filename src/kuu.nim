@@ -1,5 +1,7 @@
 import lvm, log, lauxlib, ltypes,lerror
 import std/[logging, parseopt,strutils,appdirs,paths]
+from std/terminal import isatty
+from std/os import getEnv
 
 initLogging(lvlAll)
 
@@ -33,8 +35,8 @@ proc main() =
     echo "  -v, --version  Get version"
     quit(1)
 
-  
-  var vm = newVm(enableTrace)
+  let useColor = isatty(stdout) and getEnv("NO_COLOR").len == 0 and getEnv("TERM") != "dumb"
+  var vm = newVm(enableTrace,useColor)
   
   if enableTrace:
     setLogFilter(lvlDebug)

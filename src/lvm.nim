@@ -9,9 +9,9 @@ type UnopProc = proc(vm: var VM, r: LuaValue): LuaValue
 proc run*(vm: var VM, stopDepth: int = 0): int
 proc adjustResults*(vm: var VM, want: int)
 
-proc newVM*(traceExec:bool,moduleFlags: set[ModuleFlags] = ALLMODULES): VM =
+proc newVM*(traceExec:bool,useColor:bool = false,moduleFlags: set[ModuleFlags] = ALLMODULES): VM =
   # We pre-allocate a reasonable stack size to avoid constant memory reallocations
-  VM(stack: LuaStack(values:newSeqOfCap[LuaValue](256)),openModules: moduleFlags,traceExecution: traceExec)
+  VM(stack: LuaStack(values:newSeqOfCap[LuaValue](256)),openModules: moduleFlags,traceExecution: traceExec,useColor: useColor)
 
 proc push*(vm: var VM, value: LuaValue) =
   vm.stack.values.add(value)
@@ -36,7 +36,12 @@ proc readShort(vm: var VM): uint16 =
   vm.frames[^1].ip += 2
   return (highByte shl 8) or lowByte
 
-proc performCall*(vm: var VM, argCount: int) =
+proc callMetamethod*(vm: var VM, handler: LuaValue, wantResults: int,
+    args: varargs[LuaValue]): seq[LuaValue]
+
+const MaxCallChain = 100
+ 
+proc performCall*(vm: var VM, argCount: int, callDepth: int = 0) =
   let fnIndex = vm.stack.values.len - argCount - 1
   let callee = vm.stack[fnIndex]
   if callee.kind == ltClosure:
@@ -80,8 +85,60 @@ proc performCall*(vm: var VM, argCount: int) =
     let results = callee.nativeFnVM(vm, args)
     for r in results: vm.push(r)
     vm.lastReturnCount = results.len
-  else:
+  elif hasMetaKey(callee,MTCALL):
+    if callDepth >= MaxCallChain:
+      raise newException(LuaRuntimeError, "'__call' chain too long; possible loop")
+    let handler = callee.mt.tval[MTCALL]
+    # Lua semantics: `t(a, b)` where t has a __call metamethod becomes
+    # `handler(t, a, b)` -- the callee itself is prepended as the first
+    # argument. Rather than invoking the handler re-entrantly (which
+    # would force committing to a fixed result count up front, and
+    # can't express "however many values the handler returns"), rewrite
+    # the stack in place so the call looks completely ordinary, then
+    # dispatch through performCall again. Closures, native fns,
+    # varargs and multiple return values then all flow through the
+    # paths that already handle them correctly.
+    #
+    #   before: [..., callee, arg1, ..., argN]
+    #   after:  [..., handler, callee, arg1, ..., argN]
+    #
+    # fnIndex is unchanged by this (the stack grows by one and so does
+    # the arg count), so the recursive call re-derives the same base.
+    vm.stack.values[fnIndex] = handler
+    vm.stack.values.insert(callee, fnIndex + 1)
+    vm.performCall(argCount + 1, callDepth + 1)
+  else: 
     raise newException(LuaRuntimeError, "Attempt to call a non-function value!")
+
+proc protectedCall*(vm: var VM, fn: LuaValue,
+                    callArgs: openArray[LuaValue] = []): ProtectedResult =
+  let stopDepth = vm.frames.len
+  let stackBase = vm.stack.len
+  let savedMeta = vm.metaDepth
+  let savedError = vm.lastError
+  try:
+    vm.lastError = nil
+    try:
+      vm.push(fn)
+      for a in callArgs: vm.push(a)
+      vm.performCall(callArgs.len)
+      discard vm.run(stopDepth)
+      let n = vm.lastReturnCount
+      var res = newSeq[LuaValue](n)
+      for i in countdown(n - 1, 0): res[i] = vm.pop()
+      result = ProtectedResult(ok: true, results: res)
+    except LuaExitError:
+      raise
+    except LuaRuntimeError as e:
+      vm.closeUpvalues(stackBase)   # before the setLen -- it reads stack.values[]
+      vm.frames.setLen(stopDepth)
+      vm.stack.setLen(stackBase)
+      vm.metaDepth = savedMeta
+      let errVal = if not isNil(vm.lastError): vm.lastError
+                   else: newLuaString(e.msg)
+      result = ProtectedResult(ok: false, errValue: errVal, errMsg: e.msg)
+  finally:
+    vm.lastError = savedError
 
 proc doReturn(vm: var VM, frame: CallFrame, n: int, stopDepth: int): bool =
   discard vm.frames.pop()
@@ -109,7 +166,7 @@ proc traceInstruction(vm: VM, ip: int, opName: OpCode) =
 
 proc callMetamethod*(vm: var VM, handler: LuaValue, wantResults: int,
     args: varargs[LuaValue]): seq[LuaValue] =
-  if handler.kind notin {ltClosure, ltNativeFn, ltNativeFnVM}:
+  if handler.kind notin {ltClosure, ltNativeFn, ltNativeFnVM} and not hasMetaKey(handler, MTCALL):
     raise newException(LuaRuntimeError, "attempt to call a " & $handler.kind & " value")
   let stopDepth = vm.frames.len
   vm.push(handler)
@@ -376,7 +433,9 @@ proc luaIndexGet*(vm: var VM, tblVal, key: LuaValue): LuaValue =
   return newLuaNil()
 
 proc luaIndexSet*(vm: var VM, tblVal, key, val: LuaValue) =
-  if tblVal.kind == ltTable:
+  if isNil(tblVal):
+    raise newException(LuaRuntimeError,"Attempt to index a nil value")
+  if isTable(tblVal):
     if tblVal.tval.hasKey(key):
       if isLuaNil(val): tblVal.tval.del(key)
       else: tblVal.tval[key] = val
@@ -527,7 +586,7 @@ proc run*(vm: var VM, stopDepth: int = 0): int =
           if tblVal.kind notin {ltTable, ltUserData}:
             raise newException(LuaRuntimeError, "Attempt to index a " &
                 $tblVal.kind & " value")
-          if key.kind == ltNil:
+          if isLuaNil(key):
             raise newException(LuaRuntimeError, "Table index is nil")
           vm.luaIndexSet(tblVal, key, val)
         of opCall:

@@ -3,6 +3,23 @@ import lparse, llex, lvalue, lerror, ltypes,ldebug
 
 proc compile*(c: var Compiler, node: Node, chunk: var Chunk, line: int)
 
+# Shared call emission. These exist because a call's arguments (and a
+# return's values) may end in something that yields a *variable* number
+# of values -- another call, a method call, or "..." -- and that tail
+# has to be emitted with the spread opcodes rather than compiled as an
+# ordinary single-value expression. Previously each site that needed
+# this re-implemented call emission inline and compiled the inner
+# call's arguments naively, so a nested "..." emitted opVararg (which
+# pushes the vararg *table*) instead of opSpreadVarargValues. Routing
+# every site through these helpers keeps the spread logic in one place
+# and makes it correct at any nesting depth.
+# Neither helper emits the trailing opAdjust: callers that need exactly
+# one value emit it themselves, while spread positions want every
+# value left on the stack.
+proc emitCall(c: var Compiler, node: Node, chunk: var Chunk, line: int)
+proc emitMethodCall(c: var Compiler, node: Node, chunk: var Chunk, line: int)
+proc emitSpreadTail(c: var Compiler, last: Node, chunk: var Chunk, line: int)
+
 proc newLocal(name: string, depth: int, isCaptured: bool): Local = Local(
     name: name, depth: depth, isCaptured: isCaptured)
 
@@ -149,6 +166,59 @@ proc patchJump(chunk: var Chunk, offsetIndex: int) =
   # Overwrite the dummy bytes
   chunk.code[offsetIndex] = uint8((jumpDistance shr 8) and 0xFF)
   chunk.code[offsetIndex + 1] = uint8(jumpDistance and 0xFF)
+
+proc emitSpreadTail(c: var Compiler, last: Node, chunk: var Chunk, line: int) =
+  ## Emits the final element of an argument/return list when it can
+  ## produce a variable number of values, leaving all of them on the
+  ## stack.
+  case last.kind
+  of nkCall:
+    c.emitCall(last, chunk, line)
+  of nkMethodCall:
+    c.emitMethodCall(last, chunk, line)
+  of nkVararg:
+    if c.fn == nil or not c.fn.fn.isVararg:
+      raise newException(LuaCompileError, "cannot use '...' outside a vararg function")
+    chunk.writeChunk(uint8(opSpreadVarargValues), line)
+  else:
+    raise newException(LuaCompileError, "emitSpreadTail: not a spreadable node: " & $last.kind)
+
+proc emitCall(c: var Compiler, node: Node, chunk: var Chunk, line: int) =
+  ## Emits a plain call, leaving ALL of its results on the stack.
+  c.compile(node.callee, chunk, line)
+  let m = node.args.len
+  if m > 0 and node.args[^1].kind in {nkCall, nkVararg, nkMethodCall}:
+    let prefixCount = m - 1
+    for i in 0 ..< prefixCount:
+      c.compile(node.args[i], chunk, line)
+    c.emitSpreadTail(node.args[^1], chunk, line)
+    chunk.writeChunk(uint8(opCallSpread), line)
+    chunk.writeChunk(uint8(prefixCount), line)
+  else:
+    for arg in node.args: c.compile(arg, chunk, line)
+    chunk.writeChunk(uint8(opCall), line)
+    chunk.writeChunk(m.uint8, line)
+
+proc emitMethodCall(c: var Compiler, node: Node, chunk: var Chunk, line: int) =
+  ## Emits a method call, leaving ALL of its results on the stack.
+  ## The receiver is injected as the first argument, so the prefix
+  ## count passed to opCallSpread accounts for it.
+  c.compile(node.mcReceiver, chunk, line)
+  let nameIdx = chunk.addConstant(newLuaString(node.mcMethodName))
+  chunk.writeChunk(uint8(opGetMethod), line)
+  chunk.writeChunk(nameIdx, line)
+  let m = node.mcArgs.len
+  if m > 0 and node.mcArgs[^1].kind in {nkCall, nkVararg, nkMethodCall}:
+    let prefixCount = m - 1
+    for i in 0 ..< prefixCount:
+      c.compile(node.mcArgs[i], chunk, line)
+    c.emitSpreadTail(node.mcArgs[^1], chunk, line)
+    chunk.writeChunk(uint8(opCallSpread), line)
+    chunk.writeChunk(uint8(prefixCount + 1), line) # +1 for the injected receiver
+  else:
+    for arg in node.mcArgs: c.compile(arg, chunk, line)
+    chunk.writeChunk(uint8(opCall), line)
+    chunk.writeChunk((m + 1).uint8, line) # +1 for the injected receiver
 
 proc compile*(c: var Compiler, node: Node, chunk: var Chunk, line: int) =
 
@@ -439,37 +509,7 @@ proc compile*(c: var Compiler, node: Node, chunk: var Chunk, line: int) =
       # 7. True path lands here, having skipped the else branch entirely
     chunk.patchJump(elseJump)
   of nkCall:
-    c.compile(node.callee, chunk, node.line)
-    let m = node.args.len
-    if m > 0 and node.args[^1].kind in {nkCall, nkVararg, nkMethodCall}:
-      let prefixCount = m - 1
-      for i in 0 ..< prefixCount:
-        c.compile(node.args[i], chunk, node.line)
-      let last = node.args[^1]
-      case last.kind
-      of nkCall:
-        c.compile(last.callee, chunk, node.line)
-        for arg in last.args: c.compile(arg, chunk, node.line)
-        chunk.writeChunk(uint8(opCall), node.line)
-        chunk.writeChunk(last.args.len.uint8, node.line)
-      of nkMethodCall:
-        c.compile(last.mcReceiver, chunk, node.line)
-        let nameIdx = chunk.addConstant(newLuaString(last.mcMethodName))
-        chunk.writeChunk(uint8(opGetMethod), node.line)
-        chunk.writeChunk(nameIdx, node.line)
-        for arg in last.mcArgs: c.compile(arg, chunk, node.line)
-        chunk.writeChunk(uint8(opCall), node.line)
-        chunk.writeChunk((last.mcArgs.len + 1).uint8, node.line)
-      else: # nkVararg
-        if c.fn == nil or not c.fn.fn.isVararg:
-          raise newException(LuaCompileError, "cannot use '...' outside a vararg function")
-        chunk.writeChunk(uint8(opSpreadVarargValues), node.line)
-      chunk.writeChunk(uint8(opCallSpread), node.line)
-      chunk.writeChunk(uint8(prefixCount), node.line)
-    else:
-      for arg in node.args: c.compile(arg, chunk, node.line)
-      chunk.writeChunk(uint8(opCall), node.line)
-      chunk.writeChunk(m.uint8, node.line)
+    c.emitCall(node, chunk, node.line)
     chunk.writeChunk(uint8(opAdjust), node.line)
     chunk.writeChunk(1'u8, node.line)
   of nkBlock:
@@ -545,25 +585,7 @@ proc compile*(c: var Compiler, node: Node, chunk: var Chunk, line: int) =
       let prefixCount = m - 1
       for i in 0 ..< prefixCount:
         c.compile(node.retVals[i], chunk, node.line)
-      let last = node.retVals[^1]
-      case last.kind
-      of nkCall:
-        c.compile(last.callee, chunk, node.line)
-        for arg in last.args: c.compile(arg, chunk, node.line)
-        chunk.writeChunk(uint8(opCall), node.line)
-        chunk.writeChunk(last.args.len.uint8, node.line)
-      of nkMethodCall:
-        c.compile(last.mcReceiver, chunk, node.line)
-        let nameIdx = chunk.addConstant(newLuaString(last.mcMethodName))
-        chunk.writeChunk(uint8(opGetMethod), node.line)
-        chunk.writeChunk(nameIdx, node.line)
-        for arg in last.mcArgs: c.compile(arg, chunk, node.line)
-        chunk.writeChunk(uint8(opCall), node.line)
-        chunk.writeChunk((last.mcArgs.len + 1).uint8, node.line)
-      else:
-        if c.fn == nil or not c.fn.fn.isVararg:
-          raise newException(LuaCompileError, "cannot use '...' outside a vararg function")
-        chunk.writeChunk(uint8(opSpreadVarargValues), node.line)
+      c.emitSpreadTail(node.retVals[^1], chunk, node.line)
       chunk.writeChunk(uint8(opReturnSpread), node.line)
       chunk.writeChunk(uint8(prefixCount), node.line)
     else:
@@ -923,17 +945,10 @@ proc compile*(c: var Compiler, node: Node, chunk: var Chunk, line: int) =
     for breakJmp in poppedLoop.breakJumps:
       chunk.patchJump(breakJmp)
   of nkMethodCall:
-    c.compile(node.mcReceiver, chunk, node.line)
-    let nameIdx = chunk.addConstant(newLuaString(node.mcMethodName))
-    chunk.writeChunk(uint8(opGetMethod), node.line)
-    chunk.writeChunk(nameIdx, node.line)
-    for arg in node.mcArgs: c.compile(arg, chunk, node.line)
-    chunk.writeChunk(uint8(opCall), node.line)
-    chunk.writeChunk((node.mcArgs.len + 1).uint8, node.line) # +1 for the injected receiver
+    c.emitMethodCall(node, chunk, node.line)
     chunk.writeChunk(uint8(opAdjust), node.line)
     chunk.writeChunk(1'u8, node.line)
   of nkDoBlock:
     c.beginScope()
     c.compile(node.doBody, chunk, node.line)
     c.endScope(chunk, node.line)
-  else: raise newException(LuaCompileError, "Kind not handled: " & $node.kind)

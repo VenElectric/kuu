@@ -69,11 +69,11 @@ proc luaSetMetatable*(args: varargs[LuaValue]): seq[LuaValue] =
   if len(args) < 1 or not (isTable(args[0]) or isUserData(args[0])):
     raise newException(LuaRuntimeError, "Bad argument #1 to 'setmetatable'. (table expected)")
   let t = args[0]
-  if not isNil(t.mt) and t.mt.tval.hasKey(MTMETA):
+  if not isNil(t.mt) and t.hasMetaKey(MTMETA):
     raise newException(LuaRuntimeError, "cannot change a protected metatable")
-  if len(args) < 2 or args[1].kind == ltNil:
+  if len(args) < 2 or isLuaNil(args[1]):
     t.mt = nil
-  elif args[1].kind == ltTable:
+  elif isTable(args[1]):
     t.mt = args[1]
   else:
     raise newException(LuaRuntimeError, "Bad argument #2 to 'setmetatable' (nil or table expected)")
@@ -85,6 +85,11 @@ proc luaPrint*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
     if i < args.high: vm.output.write("\t")
   vm.output.write("\n")
   return @[newLuaNil()]
+
+proc luaCallable*(args:varargs[LuaValue]): seq[LuaValue] =
+  if len(args) < 1:
+    raise newException(LuaRuntimeError,moduleArgNumErrorFmt("callable","1"))
+  return @[newLuaBool(isCallable(args[0]))]
 
 proc luaNext*(args: varargs[LuaValue]): seq[LuaValue] =
   if args.len < 1 or not isTable(args[0]):
@@ -122,23 +127,26 @@ proc luaPairs*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
 proc luaINext(args: varargs[LuaValue]): seq[LuaValue] =
   if args.len < 2 or not isTable(args[0]):
     raise newException(LuaRuntimeError, "inext expected a table and an index")
-
+ 
   let tbl = args[0]
-  let currentIdx = args[1].nval
-  let nextIdx = currentIdx + 1.0
-  let nextKey = newLuaNumber(nextIdx)
-
+  # intVal, not .nval: the control variable is an ltInteger now, and
+  # reading .nval off an integer variant reads the wrong field.
+  # (Integer and float keys hash/compare equal via numVal, so tables
+  # built with float keys still match.)
+  let nextIdx = intVal(args[1]) + 1
+  let nextKey = newLuaInteger(nextIdx)
+ 
   if tbl.tval.hasKey(nextKey):
     return @[nextKey, tbl.tval[nextKey]]
-
+ 
   return @[newLuaNil()]
-
+ 
 proc luaIPairs*(args: varargs[LuaValue]): seq[LuaValue] =
   if len(args) < 1 or not isTable(args[0]):
     raise newException(LuaRuntimeError, "bad argument #1 to 'ipairs' (table expected)")
-
-  # Return the iterator, the state (the table), and the initial control var (0.0)
-  return @[newNimFn(luaINext), args[0], newLuaNumber(0.0)]
+ 
+  # Return the iterator, the state (the table), and the initial control var (0)
+  return @[newNimFn(luaINext), args[0], newLuaInteger(0)]
 
 
 

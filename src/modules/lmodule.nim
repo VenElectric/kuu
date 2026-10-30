@@ -1,4 +1,4 @@
-import lcore,lfile,lmath,lpackage,ltable,lprocess,ltime,ldir,lset,lcoro,lunicode,ljson,lnet,lstring
+import lcore,lfile,lmath,lpackage,ltable,lprocess,ltime,ldir,lset,lcoro,lunicode,ljson,lnet,lstring,ltest
 import ../ltypes,../lvm,../lvalue
 import std/tables
 
@@ -11,12 +11,12 @@ proc openCore*(vm: var VM) =
   vm.luaIndexSet(vm.globals["TypeKind"], newLuaString("table"), newLuaString("table"))
   vm.luaIndexSet(vm.globals["TypeKind"], newLuaString("nim function"), newLuaString("nim function"))
   vm.luaIndexSet(vm.globals["TypeKind"], newLuaString("lua function"), newLuaString("lua function"))
-  vm.luaIndexSet(vm.globals["TypeKind"], newLuaString("user data"), newLuaString("user data"))
+  vm.luaIndexSet(vm.globals["TypeKind"], newLuaString("userdata"), newLuaString("userdata"))
   vm.luaIndexSet(vm.globals["TypeKind"], newLuaString("enumeration"), newLuaString("enumeration"))
   if mCore notin vm.openModules:
     return
   vm.registerGC()
-  
+  vm.globals["callable"] = newNimFn(luaCallable)
   vm.globals["assert"] = newNimFnVM(luaAssert)
   vm.globals["rawget"] = newNimFn(luaRawGet)
   vm.globals["rawset"] = newNimFn(luaRawSet)
@@ -87,7 +87,7 @@ proc openString*(vm: var VM) =
   let stringLib = newStringLib()
   vm.globals["string"] = stringLib
   let mt = newLuaTable()
-  mt.tval[MTINDEX] = stringLib   # x:rep(...) and string.rep(x, ...) resolve to the SAME function
+  mt.tval[MTINDEX] = stringLib 
   vm.stringMT = mt
 
 proc openCoroutine*(vm: var VM) =
@@ -110,3 +110,9 @@ proc openNet*(vm: var VM) =
   if mNet notin vm.openModules:
     return
   vm.newNetLib()
+
+proc openTest*(vm: var VM) = 
+  if mTest notin vm.openModules:
+    return
+  vm.luaIndexSet(vm.globals["TypeKind"], newLuaString("testsuite"), newLuaString("testsuite"))
+  vm.globals["test"] = newTestLib()

@@ -1,3 +1,6 @@
-local x = "hello world"
+local proto = {}
+proto.f = function(a, b) print(a, b) end
+local t = setmetatable({}, {__index = proto})
 
-print(string.sub(x,0, 0))
+t.f("x")   -- x            nil
+t:f("x")   -- table: 0x..  x

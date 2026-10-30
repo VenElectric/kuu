@@ -17,7 +17,8 @@ type
     mCoro,
     mUnicode,
     mJson,
-    mNet
+    mNet,
+    mTest
   CoroutineStatus* = enum
     csSuspended, csRunning, csNormal, csDead
   LuaKind* = enum
@@ -88,9 +89,14 @@ type
     opMarkGlobalConst,
     opMarkClose
 
-const ALLMODULES* = {mCore,mTable,mFile,mMath,mPackage,mProcess,mTime,mDir,mSet,mString,mCoro,mUnicode,mJson,mNet}
+const ALLMODULES* = {mTest,mCore,mTable,mFile,mMath,mPackage,mProcess,mTime,mDir,mSet,mString,mCoro,mUnicode,mJson,mNet}
 
 type
+  ProtectedResult* = object
+    ok*: bool
+    results*: seq[LuaValue]   # values returned on success
+    errValue*: LuaValue       # Lua-level error value; preserves non-strings
+    errMsg*: string           # Nim-level message, carries the "line N: " prefix
   ToCloseSlot* = object
     slot*: int      # frame-relative slot holding the <close> value
     closed*: bool   
@@ -203,6 +209,7 @@ type
     nestedRunDepth*: int   
     openModules*: set[ModuleFlags]
     stringMT*: LuaValue
+    useColor*:bool
 
 proc `[]`*(s:LuaStack,index:int): LuaValue = s.values[index]
 proc `[]=`*(s:var LuaStack,index:int,v:sink LuaValue) = s.values[index] = v

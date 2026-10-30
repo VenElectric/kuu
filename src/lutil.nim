@@ -1,5 +1,5 @@
 import std/[strutils,json,tables]
-import lvalue, ltypes,lerror
+import lvalue, ltypes
 
 proc parseBaseN(s: string, base: int): (bool, int64) =
   var idx = 0
@@ -33,7 +33,9 @@ proc luaUToNumber*(val: LuaValue, base: int = 10): LuaValue =
 
   if base == 10:
     case val.kind
-    of ltNumber:
+    of ltNumber, ltInteger:
+      # ltInteger was previously unhandled and fell through to the
+      # `else` below, so tonumber(5) on an integer returned nil.
       return val
     of ltString:
       let s = val.sval.strip()
@@ -47,12 +49,13 @@ proc luaUToNumber*(val: LuaValue, base: int = 10): LuaValue =
         let hexDigits = if isNeg: cleanHex[3..^1] else: cleanHex[2..^1]
         let (ok, res) = parseBaseN(hexDigits, 16)
         if ok:
-          return newLuaNumber(if isNeg: -res.float64 else: res.float64)
+          return newLuaInteger(if isNeg: -res else: res)
         return newLuaNil()
 
-      # 2. Try Standard Base-10 Integer
+      # 2. Try Standard Base-10 Integer -- must stay an INTEGER, or
+      # every whole number in the language prints as "5.0".
       try:
-        return newLuaNumber(parseBiggestInt(s).float64)
+        return newLuaInteger(parseBiggestInt(s))
       except ValueError:
         discard
 
@@ -72,7 +75,7 @@ proc luaUToNumber*(val: LuaValue, base: int = 10): LuaValue =
     let s = strVal.strip()
     let (ok, res) = parseBaseN(s, base)
     if ok:
-      return newLuaNumber(res.float64)
+      return newLuaInteger(res)
     else:
       return newLuaNil()
 

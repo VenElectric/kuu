@@ -69,6 +69,9 @@ proc intVal*(v: LuaValue): int64 =
         raise newException(LuaRuntimeError, "Number has no integer representation")
     else: raise newException(LuaRuntimeError, $v.kind & " has no integer representation")
 
+proc hasMetaKey*(v: LuaValue, k: LuaValue): bool
+proc hasMetatable*(v: LuaValue): bool
+
 func kind*(v: LuaValue): LuaKind = v.kind
 func isLuaNil*(v: LuaValue): bool = v.kind == ltNil
 func isBool*(v: LuaValue): bool = v.kind == ltBool
@@ -81,10 +84,9 @@ func isNimFn*(v: LuaValue): bool = v.kind == ltNativeFn
 func isNimFnVM*(v: LuaValue): bool = v.kind == ltNativeFnVM
 func isLuaFn*(v: LuaValue): bool = v.kind == ltClosure
 func isUserData*(v: LuaValue): bool = v.kind == ltUserData
-func isCallable*(v: LuaValue): bool = isNimFn(v) or isLuaFn(v) or isNimFnVM(v)
-proc isSet*(v: LuaValue): bool =
-  isTable(v) and not isNil(v.mt) and v.mt.tval.hasKey(MTTYPE) and v.mt.tval[MTTYPE].sval == "set"
-proc isEnum*(v: LuaValue): bool = isTable(v) and not isNil(v.mt) and v.mt.tval.hasKey(MTTYPE) and v.mt.tval[MTTYPE].sval == "enumeration"
+proc isCallable*(v: LuaValue): bool = isNimFn(v) or isLuaFn(v) or isNimFnVM(v) or v.hasMetaKey(MTCALL)
+proc isSet*(v: LuaValue): bool = hasMetaTable(v) and v.hasMetaKey(MTTYPE) and v.mt.tval[MTTYPE].sval == "set"
+proc isEnum*(v: LuaValue): bool = hasMetaTable(v) and v.hasMetaKey(MTTYPE) and v.mt.tval[MTTYPE].sval == "enumeration"
 proc isInternal*(t: LuaValue): bool = isTable(t) and t.internal
 proc isCoroutine*(t: LuaValue): bool = t.kind == ltThread
 
@@ -103,7 +105,12 @@ proc getUserData*(v: LuaValue): LuaUserData = v.ud
 proc getCoroutine*(v:LuaValue): LuaCoroutine = v.co
 
 proc hasMetatable*(v: LuaValue): bool = (isTable(v) or isUserData(v)) and not isNil(v.mt)
-proc hasMetaKey*(v: LuaValue, k: LuaValue): bool = v.mt.tval.hasKey(k)
+# Must be safe to call on ANY value, including nil and non-table kinds:
+# performCall probes it on an arbitrary callee to decide whether a
+# __call metamethod applies, so an unguarded v.mt deref here turns
+# every "attempt to call a non-function" into a segfault.
+proc hasMetaKey*(v: LuaValue, k: LuaValue): bool =
+  not isNil(v) and v.hasMetatable() and v.mt.tval.hasKey(k) and not isNil(v.mt.tval[k])
 
 proc newLuaValue(kind: LuaKind): LuaValue = LuaValue(kind: kind)
 proc newLuaNil*(): LuaValue = newLuaValue(ltNil)

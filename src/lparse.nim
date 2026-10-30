@@ -674,10 +674,13 @@ proc parsePrimary(vp): Node =
   elif vp.match(tkFunction):
     let defLine = vp.previous().line
     vp.consume(tkLeftParen, "Expected '(' after function keyword.")
+    var isVararg = false
     var parameters: seq[string] = @[]
     if not vp.check(tkRightParen):
       while true:
-        echo "While loop: ",vp.previous().lexeme
+        if vp.match(tkDots):
+          isVararg = true
+          break
         if not vp.match(tkIdent):
           raise newException(LuaSyntaxError, "Line: " & $defLine & " Expected parameter name.")
         parameters.add(vp.previous().lexeme)
@@ -693,7 +696,7 @@ proc parsePrimary(vp): Node =
     vp.consume(tkEnd, "Expected 'end' to close function body.")
 
     # Pass "" as the name for anonymous/expression functions
-    return newFunctionDef("<anonymous>", parameters, body, defLine, false, isExpr = true)
+    return newFunctionDef("<anonymous>", parameters, body, defLine, isVararg, isExpr = true)
   elif vp.match(tkDots):
     return newVararg(vp.peek().line)
   elif vp.match(tkBreak):
@@ -971,5 +974,3 @@ proc printAST*(parser: LuaParser) =
   var ast = p.parseBlock()
   printNode(ast)
   echo "====================="
-
-
