@@ -142,9 +142,3 @@ proc toLua*(n:JsonNode): LuaValue =
     for item in n.items:
       result.tval[newLuaInteger(i)] = toLua(item)
       inc(i)
-
-# bad argument #1 to 'remove' (table expected)
-# Invalid # of arguments to 'sin'. Expected one argument.
-proc moduleArgKindErrorFmt*(pos:int,fnName,kind:string): string = "bad argument #" & $pos & " to '" & fnName & "' (" & kind & " expected)"
-proc moduleArgKindsErrorFmt*(pos:int,fnName:string,kinds:openArray[string]): string = "bad argument #" & $pos & " to '" & fnName & "' (" & kinds.join(",") & " expected)"
-proc moduleArgNumErrorFmt*(fnName,numArgs:string): string = "invalid # of arguments to '" & fnName & "'. Expected " & numArgs & "."

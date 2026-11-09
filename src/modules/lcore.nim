@@ -7,28 +7,27 @@ import ../lerror
 import ../lvm
 
 proc luaRawGet*(args: varargs[LuaValue]): seq[LuaValue] =
-  if len(args) != 2:
-    raise newException(LuaRuntimeError, "Incorrect number of arguments to 'rawget'. (table and key expected)")
+  checkruntime(len(args) != 2,moduleArgNumErrorFmt("rawget","table","key"))
+  # if len(args) != 2:
+  #   raise newException(LuaRuntimeError, "Incorrect number of arguments to 'rawget'. (table and key expected)")
   let tab = args[0]
-  if isInternal(tab):
-    raise newException(LuaRuntimeError,"Cannot use 'rawget' on an internal table")
+  checkruntime(isInternal(tab),"Cannot use 'rawget' on an internal table")
+  # if isInternal(tab):
+  #   raise newException(LuaRuntimeError,"Cannot use 'rawget' on an internal table")
   let index = args[1]
-  if not isTable(tab):
-    raise newException(LuaRuntimeError, "Bad argument #1 to 'rawget'. (table expected)")
+  checkruntime(not isTable(tab),moduleArgKindErrorFmt(1,"rawget","table"))
+  # if not isTable(tab):
+  #   raise newException(LuaRuntimeError, "Bad argument #1 to 'rawget'. (table expected)")
   return @[tab.tval.getOrDefault(index, newLuaNil())]
 
 proc luaRawSet*(args: varargs[LuaValue]): seq[LuaValue] =
-  if len(args) != 3:
-    raise newException(LuaRuntimeError, "Incorrect number of arguments to 'rawset'. (table, key, and value expected)")
+  checkruntime(len(args) != 3, "Incorrect number of arguments to 'rawset'. (table, key, and value expected)")
   let tab = args[0]
-  if isInternal(tab):
-    raise newException(LuaRuntimeError,"Cannot use 'rawset' on an internal table")
+  checkruntime(isInternal(tab),"Cannot use 'rawset' on an internal table")
   let index = args[1]
   let value = args[2]
-  if not isTable(tab):
-    raise newException(LuaRuntimeError, "Bad argument #1 to 'rawset'. (table expected)")
-  if index.kind == ltNil:
-    raise newException(LuaRuntimeError, "table index is nil")
+  checkruntime(isTable(tab),"Bad argument #1 to 'rawset'. (table expected)")
+  checkruntime(index.kind == ltNil, "table index is nil")
   if isLuaNil(value):
     tab.tval.del(index)
   else:
