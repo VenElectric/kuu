@@ -112,6 +112,8 @@ proc hasMetatable*(v: LuaValue): bool = (isTable(v) or isUserData(v)) and not is
 proc hasMetaKey*(v: LuaValue, k: LuaValue): bool =
   not isNil(v) and v.hasMetatable() and v.mt.tval.hasKey(k) and not isNil(v.mt.tval[k])
 
+
+
 proc newLuaValue(kind: LuaKind): LuaValue = LuaValue(kind: kind)
 proc newLuaNil*(): LuaValue = newLuaValue(ltNil)
 
@@ -170,6 +172,12 @@ proc newUpvalue*(stack:LuaStack,location: int, isLocal: bool, isOpen: bool = tru
 proc newLuaTable*(): LuaValue =
   result = newLuaValue(ltTable)
   result.tval = newTable[LuaValue, LuaValue]()
+
+proc internaltableGet*(t:LuaTable,key:LuaValue): LuaValue = 
+  t.getOrDefault(key,newLuaNil())
+
+proc internaltableSet*(t: LuaTable,key,value:LuaValue) = 
+  t[key] = value
 
 proc newUserData*(v: LuaUserData): LuaValue =
   result = newLuaValue(ltUserData)

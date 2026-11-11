@@ -26,9 +26,9 @@ proc luaCreateDir(args: varargs[LuaValue]): seq[LuaValue] =
       except OSError as e:
         return @[newLuaNil(),newLuaString("Unable to create dir: " & $dPath & " (" & e.msg & ")")]
     else:
-      raise newException(LuaRuntimeError,moduleArgKindErrorFmt(1,"createDir","string"))
+      raise newException(LuaRuntimeError,kindErrFmt(1,"createDir","string"))
   else:
-    raise newException(LuaRuntimeError,moduleArgNumErrorFmt("createDir","one"))
+    raise newException(LuaRuntimeError,argErrFmtNumbered("createDir",1))
 
 proc luaRemoveDir(args: varargs[LuaValue]): seq[LuaValue] = 
   if len(args) == 1:
@@ -40,9 +40,9 @@ proc luaRemoveDir(args: varargs[LuaValue]): seq[LuaValue] =
       except OSError as e:
         return @[newLuaNil(),newLuaString("Unable to remove dir: " & $dPath & " (" & e.msg & ")")]
     else:
-      raise newException(LuaRuntimeError,moduleArgKindErrorFmt(1,"removeDir","string"))
+      raise newException(LuaRuntimeError,kindErrFmt(1,"removeDir","string"))
   else:
-    raise newException(LuaRuntimeError,moduleArgNumErrorFmt("removeDir","one"))
+    raise newException(LuaRuntimeError,argErrFmtNumbered("removeDir",1))
 
 proc luaMoveDir(args: varargs[LuaValue]): seq[LuaValue] = 
   if len(args) == 2:
@@ -56,9 +56,9 @@ proc luaMoveDir(args: varargs[LuaValue]): seq[LuaValue] =
         return @[newLuaNil(),newLuaString("Unable to move dir from " & $source & " to " & $dest & " (" & e.msg & ")")]
     else:
       let pos = if not isString(args[0]): 1 else: 2
-      raise newException(LuaRuntimeError,moduleArgKindErrorFmt(pos,"moveDir","string"))
+      raise newException(LuaRuntimeError,kindErrFmt(pos,"moveDir","string"))
   else:
-    raise newException(LuaRuntimeError,moduleArgNumErrorFmt("moveDir","two"))
+    raise newException(LuaRuntimeError,argErrFmtNumbered("moveDir",2))
 
 proc luaDirExists(args: varargs[LuaValue]): seq[LuaValue] = 
   if len(args) == 1:
@@ -66,9 +66,9 @@ proc luaDirExists(args: varargs[LuaValue]): seq[LuaValue] =
       let dPath = Path(getString(args[0]))
       return @[newLuaBool(dirExists(dPath))]
     else:
-      raise newException(LuaRuntimeError,moduleArgKindErrorFmt(1,"dirExists","string"))
+      raise newException(LuaRuntimeError,kindErrFmt(1,"dirExists","string"))
   else:
-    raise newException(LuaRuntimeError,moduleArgNumErrorFmt("dirExists","one"))
+    raise newException(LuaRuntimeError,argErrFmtNumbered("dirExists",1))
 
 proc luaCopyDir(args:varargs[LuaValue]): seq[LuaValue] = 
   if len(args) == 2:
@@ -82,9 +82,9 @@ proc luaCopyDir(args:varargs[LuaValue]): seq[LuaValue] =
         return @[newLuaNil(),newLuaString("Unable to copy source dir " & $source & " to " & $dest & " (" & e.msg & ")")]
     else:
       let pos = if not isString(args[0]): 1 else: 2
-      raise newException(LuaRuntimeError,moduleArgKindErrorFmt(pos,"copyDir","string"))
+      raise newException(LuaRuntimeError,kindErrFmt(pos,"copyDir","string"))
   else:
-    raise newException(LuaRuntimeError,moduleArgNumErrorFmt("copyDir","two"))
+    raise newException(LuaRuntimeError,argErrFmtNumbered("copyDir",2))
 
 proc asTempDir(v: LuaValue): LuaTempDir =
   if not isUserData(v) or v.ud.isNil or not (v.ud of LuaTempDir):
@@ -105,18 +105,18 @@ proc luaTempDirPath(args: varargs[LuaValue]): seq[LuaValue] =
 
 proc luaCreateTempDir(args: varargs[LuaValue]): seq[LuaValue] =
   if len(args) < 2:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("temp", "at least two"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("temp", 2)) # at least two, do we need a separate formatter for this?
   if not isString(args[0]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "temp", "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, "temp", "string"))
   if not isString(args[1]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(2, "temp", "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(2, "temp", "string"))
 
   let prefix = getString(args[0])
   let suffix = getString(args[1])
   var baseDir = ""   # empty string -> Nim's own default (the system temp directory)
   if len(args) >= 3:
     if not isString(args[2]):
-      raise newException(LuaRuntimeError, moduleArgKindErrorFmt(3, "temp", "string"))
+      raise newException(LuaRuntimeError, kindErrFmt(3, "temp", "string"))
     baseDir = getString(args[2])
 
   try:
@@ -132,9 +132,9 @@ proc newDirLib*(vm: var VM) =
 
   let luaWalkDir = proc(args: varargs[LuaValue]): seq[LuaValue] =
     if len(args) != 1:
-      raise newException(LuaRuntimeError, moduleArgNumErrorFmt("walk", "one"))
+      raise newException(LuaRuntimeError, argErrFmtNumbered("walk", 1))
     if not isString(args[0]):
-      raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "walk", "string"))
+      raise newException(LuaRuntimeError, kindErrFmt(1, "walk", "string"))
 
     let dPath = Path(getString(args[0]))
     if not dirExists(dPath):
@@ -170,16 +170,16 @@ proc newDirLib*(vm: var VM) =
   let luaTempScoped = proc(args: varargs[LuaValue]): seq[LuaValue] =
   # same argument validation as luaCreateTempDir
     if len(args) < 2:
-      raise newException(LuaRuntimeError, moduleArgNumErrorFmt("tempScoped", "at least two"))
+      raise newException(LuaRuntimeError, argErrFmtNumbered("tempScoped",2)) # at least two
     if not isString(args[0]):
-      raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "tempScoped", "string"))
+      raise newException(LuaRuntimeError, kindErrFmt(1, "tempScoped", "string"))
   
     if not isString(args[1]):
-      raise newException(LuaRuntimeError, moduleArgKindErrorFmt(2, "tempScoped", "string"))
+      raise newException(LuaRuntimeError, kindErrFmt(2, "tempScoped", "string"))
     var baseDir = ""
     if len(args) >= 3:
       if not isString(args[2]):
-        raise newException(LuaRuntimeError, moduleArgKindErrorFmt(3, "tempScoped", "string"))
+        raise newException(LuaRuntimeError, kindErrFmt(3, "tempScoped", "string"))
       baseDir = getString(args[2])
 
     try:

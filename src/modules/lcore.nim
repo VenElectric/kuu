@@ -7,26 +7,20 @@ import ../lerror
 import ../lvm
 
 proc luaRawGet*(args: varargs[LuaValue]): seq[LuaValue] =
-  checkruntime(len(args) != 2,moduleArgNumErrorFmt("rawget","table","key"))
-  # if len(args) != 2:
-  #   raise newException(LuaRuntimeError, "Incorrect number of arguments to 'rawget'. (table and key expected)")
+  checkruntime(len(args) != 2,numArgErrFmt("rawget","table","key"))
   let tab = args[0]
   checkruntime(isInternal(tab),"Cannot use 'rawget' on an internal table")
-  # if isInternal(tab):
-  #   raise newException(LuaRuntimeError,"Cannot use 'rawget' on an internal table")
   let index = args[1]
-  checkruntime(not isTable(tab),moduleArgKindErrorFmt(1,"rawget","table"))
-  # if not isTable(tab):
-  #   raise newException(LuaRuntimeError, "Bad argument #1 to 'rawget'. (table expected)")
+  checkruntime(not isTable(tab),kindErrFmt(1,"rawget","table"))
   return @[tab.tval.getOrDefault(index, newLuaNil())]
 
 proc luaRawSet*(args: varargs[LuaValue]): seq[LuaValue] =
-  checkruntime(len(args) != 3, "Incorrect number of arguments to 'rawset'. (table, key, and value expected)")
+  checkruntime(len(args) != 3, numArgErrFmt("rawset","table","key","value"))
   let tab = args[0]
   checkruntime(isInternal(tab),"Cannot use 'rawset' on an internal table")
   let index = args[1]
   let value = args[2]
-  checkruntime(isTable(tab),"Bad argument #1 to 'rawset'. (table expected)")
+  checkruntime(not isTable(tab),kindErrFmt(1,"rawset","table"))
   checkruntime(index.kind == ltNil, "table index is nil")
   if isLuaNil(value):
     tab.tval.del(index)
@@ -35,47 +29,41 @@ proc luaRawSet*(args: varargs[LuaValue]): seq[LuaValue] =
   return @[tab]
 
 proc luaRawEqual*(args: varargs[LuaValue]): seq[LuaValue] =
-  if len(args) != 2:
-    raise newException(LuaRuntimeError, "Incorrect number of arguments to 'rawEqual'. Two values expected.")
+  checkruntime(len(args) != 2, argErrFmtNumbered("rawequal",2))
   return @[newLuaBool(args[0] == args[1])]
 
 proc luaRawLen*(args: varargs[LuaValue]): seq[LuaValue] =
-  if len(args) != 1:
-    raise newException(LuaRuntimeError, "Incorrect number of arguments to 'rawlen'. One value expected.")
+  checkruntime(len(args) != 1, argErrFmtNumbered("rawlen",1))
   let v = args[0]
   result = @[]
   if isString(v): result.add(newLuaInteger(len(v.sval)))
   elif isTable(v): result.add(newLuaInteger(len(v.tval)))
   else:
-    raise newException(LuaRuntimeError, "Bad argument #1 to 'rawlen'. (table or string expected)")
+    raise newException(LuaRuntimeError, kindErrFmt(1,"rawlen","table or string"))
 
 proc luaRawType*(args: varargs[LuaValue]): seq[LuaValue] =
-  if len(args) != 1:
-    raise newException(LuaRuntimeError, "Incorrect number of arguments to 'rawtype'. One value expected.")
+  checkruntime(len(args) != 1,argErrFmtNumbered("rawtype",1))
   let v = args[0]
   result = @[newLuaString($v.kind)]
 
 proc luaGetMetatable*(args: varargs[LuaValue]): seq[LuaValue] =
-  if len(args) < 1 or not (isTable(args[0]) or isUserData(args[0])):
-    raise newException(LuaRuntimeError, "Bad argument #1 to 'getmetatable'. (table expected)")
+  checkruntime(len(args) < 1 or not (isTable(args[0]) or isUserData(args[0])),kindErrFmt(1,"getmetatable","table"))
   let t = args[0]
   if isNil(t.mt): return @[newLuaNil()]
-  if t.mt.tval.hasKey(MTMETA):
+  if hasMetaKey(t,MTMETA):
     return @[t.mt.tval[MTMETA]]
   return @[t.mt]
 
 proc luaSetMetatable*(args: varargs[LuaValue]): seq[LuaValue] =
-  if len(args) < 1 or not (isTable(args[0]) or isUserData(args[0])):
-    raise newException(LuaRuntimeError, "Bad argument #1 to 'setmetatable'. (table expected)")
+  checkruntime(len(args) < 1 or not (isTable(args[0]) or isUserData(args[0])), kindErrFmt(1,"setmetatable","table"))
   let t = args[0]
-  if not isNil(t.mt) and t.hasMetaKey(MTMETA):
-    raise newException(LuaRuntimeError, "cannot change a protected metatable")
+  checkruntime(not isNil(t.mt) and t.hasMetaKey(MTMETA), "cannot change a protected metatable")
   if len(args) < 2 or isLuaNil(args[1]):
     t.mt = nil
   elif isTable(args[1]):
     t.mt = args[1]
   else:
-    raise newException(LuaRuntimeError, "Bad argument #2 to 'setmetatable' (nil or table expected)")
+    raise newException(LuaRuntimeError, kindErrFmt(2,"setmetatable","nil or table"))
   return @[t]
 
 proc luaPrint*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
@@ -86,20 +74,18 @@ proc luaPrint*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
   return @[newLuaNil()]
 
 proc luaCallable*(args:varargs[LuaValue]): seq[LuaValue] =
-  if len(args) < 1:
-    raise newException(LuaRuntimeError,moduleArgNumErrorFmt("callable","1"))
+  checkruntime(len(args) < 1,numArgErrFmt("callable","1"))
   return @[newLuaBool(isCallable(args[0]))]
 
 proc luaNext*(args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 1 or not isTable(args[0]):
-    raise newException(LuaRuntimeError, "bad argument #1 to 'next' (table expected)")
+  checkruntime(args.len < 1 or not isTable(args[0]),kindErrFmt(1,"next", "table"))
 
   let tbl = args[0]
   let key = if args.len > 1: args[1] else: newLuaNil()
 
   if key.kind == ltNil:
     for k, v in tbl.tval.pairs:
-      return @[k, v] # Return BOTH key and value
+      return @[k, v]
     return @[newLuaNil()]
 
   var foundCurrent = false
@@ -107,25 +93,22 @@ proc luaNext*(args: varargs[LuaValue]): seq[LuaValue] =
     if foundCurrent:
       return @[k, v]
 
-    # Using the overloaded `==` from lvalue.nim[cite: 33]
     if k == key:
       foundCurrent = true
 
   return @[newLuaNil()]
 
 proc luaPairs*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
-  if len(args) < 1 or not isTable(args[0]):
-    raise newException(LuaRuntimeError, "bad argument #1 to 'pairs' (table expected)")
+  checkruntime(len(args) < 1 or not isTable(args[0]), kindErrFmt(1,"pairs","table"))
   let t = args[0]
   if not isNil(t.mt) and t.mt.tval.hasKey(MTPAIRS):
     let handler = t.mt.tval[MTPAIRS]
-    return vm.callMetamethod(handler, 3, t) # __pairs must produce (iterator, state, control)
+    return vm.callMetamethod(handler, 3, t)
   return @[newNimFn(luaNext), t, newLuaNil()]
 
 
 proc luaINext(args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 2 or not isTable(args[0]):
-    raise newException(LuaRuntimeError, "inext expected a table and an index")
+  checkruntime(args.len < 2 or not isTable(args[0]),"inext expected a table and an index")
  
   let tbl = args[0]
   # intVal, not .nval: the control variable is an ltInteger now, and
@@ -141,8 +124,7 @@ proc luaINext(args: varargs[LuaValue]): seq[LuaValue] =
   return @[newLuaNil()]
  
 proc luaIPairs*(args: varargs[LuaValue]): seq[LuaValue] =
-  if len(args) < 1 or not isTable(args[0]):
-    raise newException(LuaRuntimeError, "bad argument #1 to 'ipairs' (table expected)")
+  checkruntime(len(args) < 1 or not isTable(args[0]),kindErrFmt(1,"ipairs","table"))
  
   # Return the iterator, the state (the table), and the initial control var (0)
   return @[newNimFn(luaINext), args[0], newLuaInteger(0)]
@@ -172,11 +154,9 @@ proc luaToString*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
 
   if not isNil(v.mt) and hasMetaKey(v, MTTOSTR):
     let handler = v.mt.tval[MTTOSTR]
-    if handler.kind notin {ltClosure, ltNativeFn, ltNativeFnVM}:
-      raise newException(LuaRuntimeError, "'__tostring' must be a function")
+    checkruntime(handler.kind notin {ltClosure, ltNativeFn, ltNativeFnVM},"'__tostring' must be a function")
     let results = vm.callMetamethod(handler, 1, v)
-    if not isString(results[0]):
-      raise newException(LuaRuntimeError, "'__tostring' must return a string")
+    checkruntime(not isString(results[0]), "'__tostring' must return a string")
     return @[results[0]]
 
   # No __tostring -- fall back to the default representation, using __name
@@ -190,8 +170,7 @@ proc luaToString*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
   return @[newLuaString(defaultStr)]
 
 proc luaType*(args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len == 0:
-    raise newException(LuaRuntimeError, "Invalid # of arguments to 'type'. Expected one argument.")
+  checkruntime(args.len == 0, "Invalid # of arguments to 'type'. Expected one argument.")
   let v = args[0]
   if not isNil(v.mt) and hasMetaKey(v, MTTYPE) and isString(v.mt.tval[MTTYPE]):
     return @[v.mt.tval[MTTYPE]]
@@ -220,8 +199,7 @@ proc luaError*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
   raise newException(LuaRuntimeError, msgStr)
 
 proc luaAssert*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 1:
-    raise newException(LuaRuntimeError, "bad argument #1 to 'assert' (value expected)")
+  checkruntime(args.len < 1, kindErrFmt(1,"assert","value"))
   if not truthy(args[0]):
     let msgVal = if args.len >= 2: args[1] else: newLuaString("assertion failed!")
     vm.lastError = msgVal
@@ -231,8 +209,7 @@ proc luaAssert*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
   for a in args: result.add(a)
 
 proc luaPCall*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 1:
-    raise newException(LuaRuntimeError, "bad argument #1 to 'pcall' (value expected)")
+  checkruntime(args.len < 1, kindErrFmt(1,"pcall","value"))
   let fn = args[0]
   let callArgs = if args.len > 1: args[1..^1] else: @[]
   let stopDepth = vm.frames.len
@@ -292,11 +269,9 @@ proc registerGC*(vm: var VM) =
   let GCOption = newLuaEnum(["collect", "count", "stop", "restart"])
   
   let luaCollectGarbage = proc(args: varargs[LuaValue]): seq[LuaValue] =
-    if len(args) == 0 or not isInteger(args[0]): 
-      raise newException(LuaRuntimeError, "bad argument #1 to 'collectgarbage' (GCOption.xxx expected)")
+    checkruntime(len(args) == 0 or not isInteger(args[0]),"bad argument #1 to 'collectgarbage' (GCOption.xxx expected)")
     var optName = enumGet(GCOption, args[0]) # collectgarbage() with no args defaults to "collect", matching real Lua
-    if isLuaNil(optName):
-      raise newException(LuaRuntimeError, "bad argument #1 to 'collectgarbage' (GCOption.xxx expected)")
+    checkruntime(isLuaNil(optName), "bad argument #1 to 'collectgarbage' (GCOption.xxx expected)")
     
     when defined(gcOrc):
       case optName.sval
@@ -329,8 +304,7 @@ proc newTypeKindLib*(vm: var VM) =
 
   let typeKindNewindex = proc(args: varargs[LuaValue]): seq[LuaValue] =
     let key = args[1]
-    if backing.tval.hasKey(key):
-      raise newException(LuaRuntimeError, "type '" & $key & "' is already registered")
+    checkruntime(backing.tval.hasKey(key), "type '" & $key & "' is already registered")
     backing.tval[key] = args[2]
     return @[]
 

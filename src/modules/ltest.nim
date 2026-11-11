@@ -64,50 +64,50 @@ proc writeSummary(vm: var VM, label: string, passed, failed: int) =
 
 proc luaSuiteTest(args: varargs[LuaValue]): seq[LuaValue] =
   if args.len < 3:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("test", "two"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("test", "two"))
   let s = asSuite(args[0])
   if not isString(args[1]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "test", "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, "test", "string"))
   if not isCallable(args[2]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(2, "test", "callable"))
+    raise newException(LuaRuntimeError, kindErrFmt(2, "test", "callable"))
   s.addTest(getString(args[1]), args[2])
   return @[args[0]]
 
 proc luaSuiteSetup(args: varargs[LuaValue]): seq[LuaValue] =
   if args.len < 2:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("setup", "one"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("setup", "one"))
   if not isCallable(args[1]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "setup", "callable"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, "setup", "callable"))
   asSuite(args[0]).setupFn = args[1]
   return @[args[0]]
 
 proc luaSuiteTeardown(args: varargs[LuaValue]): seq[LuaValue] =
   if args.len < 2:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("teardown", "one"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("teardown", "one"))
   if not isCallable(args[1]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "teardown", "callable"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, "teardown", "callable"))
   asSuite(args[0]).teardownFn = args[1]
   return @[args[0]]
 
 proc luaSuiteSetupAll(args: varargs[LuaValue]): seq[LuaValue] =
   if args.len < 2:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("setupAll", "one"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("setupAll", "one"))
   if not isCallable(args[1]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "setupAll", "callable"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, "setupAll", "callable"))
   asSuite(args[0]).setupAllFn = args[1]
   return @[args[0]]
 
 proc luaSuiteTeardownAll(args: varargs[LuaValue]): seq[LuaValue] =
   if args.len < 2:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("teardownAll", "one"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("teardownAll", "one"))
   if not isCallable(args[1]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "teardownAll", "callable"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, "teardownAll", "callable"))
   asSuite(args[0]).teardownAllFn = args[1]
   return @[args[0]]
 
 proc luaSuiteExpect(args: varargs[LuaValue]): seq[LuaValue] =
   if args.len < 2:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("expect", "one"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("expect", "one"))
   let s = asSuite(args[0])
   s.requireInTest("expect")
   if not truthy(args[1]):
@@ -119,7 +119,7 @@ proc luaSuiteExpect(args: varargs[LuaValue]): seq[LuaValue] =
 
 proc luaSuiteExpectEqual(args: varargs[LuaValue]): seq[LuaValue] =
   if args.len < 3:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("expectEqual", "two"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("expectEqual", "two"))
   let s = asSuite(args[0])
   s.requireInTest("expectEqual")
   # lvalue's `==`: strings and numbers by value (5 == 5.0 passes), everything
@@ -136,7 +136,7 @@ proc luaSuiteRaises(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
   ## s:raises(fn)            -- any error
   ## s:raises(substring, fn) -- error message must contain `substring`
   if args.len < 2:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("raises", "one"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("raises", "one"))
   let s = asSuite(args[0])
   s.requireInTest("raises")
 
@@ -148,7 +148,7 @@ proc luaSuiteRaises(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
     pattern = getString(args[1])
     fn = args[2]
   else:
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "raises", "callable"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, "raises", "callable"))
 
   let r = vm.protectedCall(fn)
   if r.ok:
@@ -211,7 +211,7 @@ proc runSuite(s: TestSuite, vm: var VM): int =
 
 proc luaSuiteRun(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
   if args.len < 1:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("run", "none"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("run", "none"))
   return @[newLuaInteger(int64(asSuite(args[0]).runSuite(vm)))]
 
 proc luaSuiteNewIndex(args: varargs[LuaValue]): seq[LuaValue] =
@@ -256,9 +256,9 @@ proc newTestLib*(): LuaValue =
 
   let luaTestSuite = proc(args: varargs[LuaValue]): seq[LuaValue] =
     if args.len < 1:
-      raise newException(LuaRuntimeError, moduleArgNumErrorFmt("suite", "one"))
+      raise newException(LuaRuntimeError, argErrFmtNumbered("suite", "one"))
     if not isString(args[0]):
-      raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "suite", "string"))
+      raise newException(LuaRuntimeError, kindErrFmt(1, "suite", "string"))
     var suite = newUserData(TestSuite(name: getString(args[0])))
     suite.mt = suiteMT
     return @[suite]

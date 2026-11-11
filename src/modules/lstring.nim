@@ -15,9 +15,9 @@ proc resolveByteIndex(pos: int64, len: int): int =
 
 proc luaStrByte(args: varargs[LuaValue]): seq[LuaValue] =
   if len(args) < 1 or len(args) > 3:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("byte", "1, 2, or 3"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("byte", "1, 2, or 3"))
   if not isString(args[0]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "byte", "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, "byte", "string"))
   let str = getString(args[0])
 
   if str.len == 0:
@@ -38,7 +38,7 @@ proc luaStrChar(args: varargs[LuaValue]): seq[LuaValue] =
   var s: string
   for i, a in args:
     if not isNumber(a):
-      raise newException(LuaRuntimeError, moduleArgKindErrorFmt(i + 1, "char", "number"))
+      raise newException(LuaRuntimeError, kindErrFmt(i + 1, "char", "number"))
     let code = intVal(a)
     if code < 0 or code > 255:
       raise newException(LuaRuntimeError, "bad argument #" & $(i + 1) & " to 'char' (value out of range)")
@@ -47,25 +47,25 @@ proc luaStrChar(args: varargs[LuaValue]): seq[LuaValue] =
 
 proc luaStrLen(args: varargs[LuaValue]): seq[LuaValue] =  
   if len(args) != 1:
-    raise newException(LuaRuntimeError,moduleArgNumErrorFmt("len","1"))
+    raise newException(LuaRuntimeError,argErrFmtNumbered("len","1"))
   if not isString(args[0]):
-    raise newException(LuaRuntimeError,moduleArgKindErrorFmt(1,"len","string"))
+    raise newException(LuaRuntimeError,kindErrFmt(1,"len","string"))
   return @[newLuaInteger(len(getString(args[0])))]
 
 proc luaStrLower(args: varargs[LuaValue]): seq[LuaValue] = 
   if len(args) != 1:
-    raise newException(LuaRuntimeError,moduleArgNumErrorFmt("lower","1"))
+    raise newException(LuaRuntimeError,argErrFmtNumbered("lower","1"))
   if not isString(args[0]):
-    raise newException(LuaRuntimeError,moduleArgKindErrorFmt(1,"lower","string"))
+    raise newException(LuaRuntimeError,kindErrFmt(1,"lower","string"))
   return @[newLuaString(toLowerAscii(getString(args[0])))]
 
 proc luaStrRep(args: varargs[LuaValue]): seq[LuaValue] = 
   if len(args) < 2 or len(args) > 3:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("rep", "2 or 3"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("rep", "2 or 3"))
   if not isString(args[0]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "rep", "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, "rep", "string"))
   if not isNumber(args[1]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(2, "rep", "number"))
+    raise newException(LuaRuntimeError, kindErrFmt(2, "rep", "number"))
 
   let str = getString(args[0])
   let times = int(intVal(args[1]))
@@ -94,25 +94,25 @@ proc luaStrRep(args: varargs[LuaValue]): seq[LuaValue] =
 
 proc luaStrReverse(args: varargs[LuaValue]): seq[LuaValue] = 
   if len(args) != 1:
-    raise newException(LuaRuntimeError,moduleArgNumErrorFmt("reverse","1"))
+    raise newException(LuaRuntimeError,argErrFmtNumbered("reverse","1"))
   if not isString(args[0]):
-    raise newException(LuaRuntimeError,moduleArgKindErrorFmt(1,"reverse","string"))
+    raise newException(LuaRuntimeError,kindErrFmt(1,"reverse","string"))
   var str = getString(args[0])
   reverse(str)
   return @[newLuaString(str)]
 
 proc luaStrUpper(args: varargs[LuaValue]): seq[LuaValue] = 
   if len(args) != 1:
-    raise newException(LuaRuntimeError,moduleArgNumErrorFmt("upper","1"))
+    raise newException(LuaRuntimeError,argErrFmtNumbered("upper","1"))
   if not isString(args[0]):
-    raise newException(LuaRuntimeError,moduleArgKindErrorFmt(1,"upper","string"))
+    raise newException(LuaRuntimeError,kindErrFmt(1,"upper","string"))
   return @[newLuaString(toUpperAscii(getString(args[0])))]  
 
 proc luaStrSplit(args: varargs[LuaValue]): seq[LuaValue] =
   if len(args) == 0:
-    raise newException(LuaRuntimeError,moduleArgNumErrorFmt("split","1"))
+    raise newException(LuaRuntimeError,argErrFmtNumbered("split","1"))
   if not isString(args[0]):
-    raise newException(LuaRuntimeError,moduleArgKindErrorFmt(1,"split","string"))
+    raise newException(LuaRuntimeError,kindErrFmt(1,"split","string"))
   let str = getString(args[0])
   var sep = ","
   if len(args) == 2 and isString(args[1]):
@@ -126,11 +126,11 @@ proc luaStrSplit(args: varargs[LuaValue]): seq[LuaValue] =
 
 proc luaStrSub(args: varargs[LuaValue]): seq[LuaValue] = 
   if len(args) < 2:
-    raise newException(LuaRuntimeError,moduleArgNumErrorFmt("sub","2 or 3"))
+    raise newException(LuaRuntimeError,argErrFmtNumbered("sub","2 or 3"))
   if not isString(args[0]):
-    raise newException(LuaRuntimeError,moduleArgKindErrorFmt(1,"sub","string"))
+    raise newException(LuaRuntimeError,kindErrFmt(1,"sub","string"))
   if not isNumber(args[1]):
-    raise newException(LuaRuntimeError,moduleArgKindErrorFmt(2,"sub","integer or number"))
+    raise newException(LuaRuntimeError,kindErrFmt(2,"sub","integer or number"))
   let str = getString(args[0])
   var sPos = intVal(args[1])
   var ePos = len(str) - 1
@@ -162,11 +162,11 @@ proc resolveFindInit(initArg: int64, len: int): int =
 
 proc luaStrFind*(args: varargs[LuaValue]): seq[LuaValue] =
   if len(args) < 2:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("find", "at least 2"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("find", "at least 2"))
   if not isString(args[0]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "find", "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, "find", "string"))
   if not isString(args[1]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(2, "find", "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(2, "find", "string"))
 
   let s = getString(args[0])
   let pat = getString(args[1])
@@ -189,11 +189,11 @@ proc luaStrFind*(args: varargs[LuaValue]): seq[LuaValue] =
 
 proc luaStrMatch*(args: varargs[LuaValue]): seq[LuaValue] =
   if len(args) < 2:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("match", "at least 2"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("match", "at least 2"))
   if not isString(args[0]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "match", "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, "match", "string"))
   if not isString(args[1]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(2, "match", "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(2, "match", "string"))
 
   let s = getString(args[0])
   let pat = getString(args[1])
@@ -212,11 +212,11 @@ proc luaStrMatch*(args: varargs[LuaValue]): seq[LuaValue] =
 
 proc luaStrGmatch*(args: varargs[LuaValue]): seq[LuaValue] =
   if len(args) < 2:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("gmatch", "2 or 3"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("gmatch", "2 or 3"))
   if not isString(args[0]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "gmatch", "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, "gmatch", "string"))
   if not isString(args[1]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(2, "gmatch", "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(2, "gmatch", "string"))
 
   let s = getString(args[0])
   let pat = getString(args[1])
@@ -274,14 +274,14 @@ proc expandReplacement(repl: string, ms: MatchState, wholeMatch: string): string
 
 proc luaStrGsub*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
   if len(args) < 3:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("gsub", "3 or 4"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("gsub", "3 or 4"))
   if not isString(args[0]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "gsub", "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, "gsub", "string"))
   if not isString(args[1]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(2, "gsub", "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(2, "gsub", "string"))
   let replArg = args[2]
   if not (isString(replArg) or isTable(replArg) or isCallable(replArg)):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(3, "gsub", "string, table, or function"))
+    raise newException(LuaRuntimeError, kindErrFmt(3, "gsub", "string, table, or function"))
 
   let s = getString(args[0])
   let pat = getString(args[1])
@@ -561,9 +561,9 @@ proc fmtQuote(s: string): string =
  
 proc luaStrFormat*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
   if len(args) < 1:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("format", "at least 1"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("format", "at least 1"))
   if not isString(args[0]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "format", "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, "format", "string"))
  
   let f = getString(args[0])
   let argSeq = @args
@@ -625,17 +625,17 @@ proc luaStrFormat*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
     of 'd', 'i', 'u', 'c', 'x', 'X', 'o':
       let v = takeArg()
       if not isNumber(v):
-        raise newException(LuaRuntimeError, moduleArgKindErrorFmt(argIdx, "format", "number"))
+        raise newException(LuaRuntimeError, kindErrFmt(argIdx, "format", "number"))
       output.add(fmtInt(intVal(v), spec))
     of 'f', 'F', 'e', 'E', 'g', 'G':
       let v = takeArg()
       if not isNumber(v):
-        raise newException(LuaRuntimeError, moduleArgKindErrorFmt(argIdx, "format", "number"))
+        raise newException(LuaRuntimeError, kindErrFmt(argIdx, "format", "number"))
       output.add(fmtFloat(numVal(v), spec))
     of 'a', 'A':
       let v = takeArg()
       if not isNumber(v):
-        raise newException(LuaRuntimeError, moduleArgKindErrorFmt(argIdx, "format", "number"))
+        raise newException(LuaRuntimeError, kindErrFmt(argIdx, "format", "number"))
       output.add(fmtHexFloat(numVal(v), spec))
     of 's':
       let v = takeArg()

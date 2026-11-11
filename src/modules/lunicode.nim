@@ -5,18 +5,18 @@ import ../ltypes,../lvalue,../lerror,../lutil
 proc getStringArg(args: varargs[LuaValue], fnName,numArgs: string): string =
   # Argument count/type problems are still programmer errors -- raise, unchanged.
   if len(args) == 0:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt(fnName, numArgs))
+    raise newException(LuaRuntimeError, argErrFmtNumbered(fnName, numArgs))
   if not isString(args[0]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, fnName, "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, fnName, "string"))
   return getString(args[0])
 
 proc luaUniChar(args: varargs[LuaValue]): seq[LuaValue] =
   if len(args) == 0:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("char", "1 or more"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("char", "1 or more"))
   var s: string
   for i, arg in args:
     if not isNumber(arg):
-      raise newException(LuaRuntimeError, moduleArgKindErrorFmt(i + 1, "char", "number"))
+      raise newException(LuaRuntimeError, kindErrFmt(i + 1, "char", "number"))
     let code = intVal(arg)
     if code < 0 or code > 0x10FFFF or (code >= 0xD800 and code <= 0xDFFF):
       raise newException(LuaRuntimeError, "bad argument #" & $(i + 1) & " to 'char' (value out of range)")
@@ -35,12 +35,12 @@ proc luaUniLen(args: varargs[LuaValue]): seq[LuaValue] =
   var iArg: int64 = 1
   if len(args) >= 2:
     if not isNumber(args[1]):
-      raise newException(LuaRuntimeError, moduleArgKindErrorFmt(2, "len", "number"))
+      raise newException(LuaRuntimeError, kindErrFmt(2, "len", "number"))
     iArg = intVal(args[1])
   var jArg: int64 = -1
   if len(args) >= 3:
     if not isNumber(args[2]):
-      raise newException(LuaRuntimeError, moduleArgKindErrorFmt(3, "len", "number"))
+      raise newException(LuaRuntimeError, kindErrFmt(3, "len", "number"))
     jArg = intVal(args[2])
 
   let posi = uPosRelAt(iArg, slen)
@@ -64,9 +64,9 @@ proc luaUniLen(args: varargs[LuaValue]): seq[LuaValue] =
 
 proc luaUniValid(args: varargs[LuaValue]): seq[LuaValue] =
   if len(args) == 0:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("valid", "1"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("valid", "1"))
   if not isString(args[0]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "valid", "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, "valid", "string"))
 
   let badAt = validateUtf8(getString(args[0]))
   if badAt == -1:
@@ -101,7 +101,7 @@ proc luaUniCodepoint(args: varargs[LuaValue]): seq[LuaValue] =
   var iArg: int64 = 1
   if len(args) >= 2:
     if not isNumber(args[1]):
-      raise newException(LuaRuntimeError, moduleArgKindErrorFmt(2, "codepoint", "number"))
+      raise newException(LuaRuntimeError, kindErrFmt(2, "codepoint", "number"))
     iArg = intVal(args[1])
 
   let posi = uPosRelAt(iArg, slen)
@@ -111,7 +111,7 @@ proc luaUniCodepoint(args: varargs[LuaValue]): seq[LuaValue] =
   var jArg: int64 = posi   # default j = the ALREADY-RESOLVED i, per real Lua's own source
   if len(args) >= 3:
     if not isNumber(args[2]):
-      raise newException(LuaRuntimeError, moduleArgKindErrorFmt(3, "codepoint", "number"))
+      raise newException(LuaRuntimeError, kindErrFmt(3, "codepoint", "number"))
     jArg = intVal(args[2])
 
   let posj = uPosRelAt(jArg, slen)
@@ -143,12 +143,12 @@ proc luaUniSub(args: varargs[LuaValue]): seq[LuaValue] =
   var iArg: int64 = 1
   if len(args) >= 2:
     if not isNumber(args[1]):
-      raise newException(LuaRuntimeError, moduleArgKindErrorFmt(2, "sub", "number"))
+      raise newException(LuaRuntimeError, kindErrFmt(2, "sub", "number"))
     iArg = intVal(args[1])
   var jArg: int64 = -1
   if len(args) >= 3:
     if not isNumber(args[2]):
-      raise newException(LuaRuntimeError, moduleArgKindErrorFmt(3, "sub", "number"))
+      raise newException(LuaRuntimeError, kindErrFmt(3, "sub", "number"))
     jArg = intVal(args[2])
 
   # Same negative-position resolution as len/codepoint (uPosRelAt), but
@@ -174,11 +174,11 @@ proc isContinuationByte(s: string, i: int): bool =
 
 proc luaUniOffset(args: varargs[LuaValue]): seq[LuaValue] =
   if len(args) < 2:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt("offset", "2 or 3"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered("offset", "2 or 3"))
   if not isString(args[0]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, "offset", "string"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, "offset", "string"))
   if not isNumber(args[1]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(2, "offset", "number"))
+    raise newException(LuaRuntimeError, kindErrFmt(2, "offset", "number"))
 
   let s = getString(args[0])
   let slen = s.len
@@ -188,7 +188,7 @@ proc luaUniOffset(args: varargs[LuaValue]): seq[LuaValue] =
   var iArg: int64 = if n >= 0: 1 else: int64(slen) + 1
   if len(args) >= 3:
     if not isNumber(args[2]):
-      raise newException(LuaRuntimeError, moduleArgKindErrorFmt(3, "offset", "number"))
+      raise newException(LuaRuntimeError, kindErrFmt(3, "offset", "number"))
     iArg = intVal(args[2])
 
   var posi = uPosRelAt(iArg, slen)
@@ -247,9 +247,9 @@ proc luaUniCodes(args: varargs[LuaValue]): seq[LuaValue] =
 
 proc validateCodepoint(args: varargs[LuaValue], fnName: string): int64 =
   if len(args) == 0:
-    raise newException(LuaRuntimeError, moduleArgNumErrorFmt(fnName, "1"))
+    raise newException(LuaRuntimeError, argErrFmtNumbered(fnName, "1"))
   if not isNumber(args[0]):
-    raise newException(LuaRuntimeError, moduleArgKindErrorFmt(1, fnName, "number"))
+    raise newException(LuaRuntimeError, kindErrFmt(1, fnName, "number"))
   result = intVal(args[0])
   if result < 0 or result > 0x10FFFF or (result >= 0xD800 and result <= 0xDFFF):
     raise newException(LuaRuntimeError, "bad argument #1 to '" & fnName & "' (value out of range)")
