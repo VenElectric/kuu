@@ -3,8 +3,7 @@ import ../ltypes, ../lvalue, ../lerror, ../lvm
 
 
 proc asCoroutine(v: LuaValue): LuaCoroutine =
-  if not isCoroutine(v):
-    raise newException(LuaRuntimeError, "bad argument (coroutine expected)")
+  checkruntime(not isCoroutine(v), "bad argument (coroutine expected)")
   return getCoroutine(v)
 
 proc canYieldNow(vm: VM): bool =
@@ -28,8 +27,7 @@ proc luaCoroutineIsYieldable*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue
   return @[newLuaBool(coroutineIsYieldable(vm, co))]
 
 proc luaCoroutineStatus*(args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 1:
-    raise newException(LuaRuntimeError, "bad argument #1 to 'status' (coroutine expected)")
+  checkruntime(args.len < 1,kindErrFmt(1,"status","coroutine"))
   let co = asCoroutine(args[0])
   let s = case co.status
     of csSuspended: "suspended"
@@ -39,18 +37,15 @@ proc luaCoroutineStatus*(args: varargs[LuaValue]): seq[LuaValue] =
   return @[newLuaString(s)]
 
 proc luaCoroutineYield*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
-  if vm.currentCoroutine.isNil:
-    raise newException(LuaRuntimeError, "attempt to yield from outside a coroutine")
+  checkruntime(vm.currentCoroutine.isNil,"attempt to yield from outside a coroutine")
   let co = getCoroutine(vm.currentCoroutine)
-  if vm.nestedRunDepth != co.ownRunDepth:
-    raise newException(LuaRuntimeError, "attempt to yield across a C-call boundary")
+  checkruntime(vm.nestedRunDepth != co.ownRunDepth, "attempt to yield across a C-call boundary")
   vm.yieldValues = @args
   vm.yieldRequested = true
   return @[]
 
 proc luaCoroutineResume*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 1:
-    raise newException(LuaRuntimeError, "bad argument #1 to 'resume' (coroutine expected)")
+  checkruntime(args.len < 1, kindErrFmt(1,"resume","coroutine"))
   let coVal = args[0]
   let co = asCoroutine(coVal)
   let resumeArgs = if args.len > 1: args[1 .. ^1] else: @[]
@@ -124,14 +119,12 @@ proc luaCoroutineResume*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
   result.add(results)
 
 proc luaCoroutineCreate(args: varargs[LuaValue]): seq[LuaValue] =
-    if args.len < 1 or not isCallable(args[0]):
-      raise newException(LuaRuntimeError, "bad argument #1 to 'create' (function expected)")
+    checkruntime(args.len < 1 or not isCallable(args[0]), kindErrFmt(1,"create","function"))
     
     return @[newLuaCoroutine(args[0])]
 
 proc luaCoroutineWrap(args: varargs[LuaValue]): seq[LuaValue] = 
-    if args.len < 1 or not isCallable(args[0]):
-      raise newException(LuaRuntimeError, "bad argument #1 to 'wrap' (function expected)")
+    checkruntime(args.len < 1 or not isCallable(args[0]),kindErrFmt(1,"wrap","function"))
     let co = luaCoroutineCreate(args[0])[0]
     let wrapped = proc(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
       let results = luaCoroutineResume(vm, @[co] & @args)
@@ -152,14 +145,11 @@ proc luaCoroutineRunning(vm: var VM,args: varargs[LuaValue]): seq[LuaValue] =
       return @[co,newLuaBool(false)]
 
 proc luaCoroutineClose*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 1:
-    raise newException(LuaRuntimeError, "bad argument #1 to 'close' (coroutine expected)")
+  checkruntime(args.len < 1, kindErrFmt(1,"close","coroutine"))
   let co = asCoroutine(args[0])
 
-  if co.status == csRunning:
-    raise newException(LuaRuntimeError, "cannot close a running coroutine")
-  if co.status == csNormal:
-    raise newException(LuaRuntimeError, "cannot close a normal coroutine")
+  checkruntime(co.status == csRunning, "cannot close a running coroutine")
+  checkruntime(co.status == csNormal, "cannot close a normal coroutine")
 
   var errored = false
   var errVal = newLuaNil()
