@@ -1,1 +1,0 @@
-rawget(_G, "print")
