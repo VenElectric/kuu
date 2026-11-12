@@ -19,17 +19,15 @@ proc `=destroy`(f: var LuaFileHandleObj) =
 const FileModeNames = ["read", "write", "append", "readWriteExisting", "readWrite"]
 
 proc asFileHandle(v: LuaValue): LuaFileHandle =
-  if not isUserData(v) or v.ud.isNil or not (v.ud of LuaFileHandle):
-    raise newException(LuaRuntimeError, "bad argument (file handle expected)")
+  checkruntime(not isUserData(v) or v.ud.isNil or not (v.ud of LuaFileHandle), "bad argument (file handle expected)")
   return LuaFileHandle(v.ud)
 
 # --- Methods: none of these need the shared metatable, only an existing handle ---
 
 proc luaFileWrite(args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 1: raise newException(LuaRuntimeError, "bad argument #1 to 'write' (file expected)")
+  checkruntime(args.len < 1,kindErrFmt(1,"write","file"))
   let f = asFileHandle(args[0])
-  if f.isClosed:
-    raise newException(LuaRuntimeError, "attempt to use a closed file")
+  checkruntime(f.isClosed, "attempt to use a closed file")
   for i in 1 ..< args.len:
     let a = args[i]
     case a.kind
@@ -40,7 +38,7 @@ proc luaFileWrite(args: varargs[LuaValue]): seq[LuaValue] =
   return @[args[0]]
 
 proc luaFileClose(args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 1: raise newException(LuaRuntimeError, "bad argument #1 to 'close' (file expected)")
+  checkruntime(args.len < 1,kindErrFmt(1,"close","file"))
   let f = asFileHandle(args[0])
   if f.isStandard:
     return @[newLuaBool(true)]
@@ -53,10 +51,9 @@ proc luaFileClose(args: varargs[LuaValue]): seq[LuaValue] =
   return @[newLuaBool(true)]
 
 proc luaFileRead(args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 1: raise newException(LuaRuntimeError, "bad argument #1 to 'read' (file expected)")
+  checkruntime(args.len < 1,kindErrFmt(1,"read","file"))
   let f = asFileHandle(args[0])
-  if f.isClosed:
-    raise newException(LuaRuntimeError, "attempt to use a closed file")
+  checkruntime(f.isClosed, "attempt to use a closed file")
   var fmt = "l"
   if args.len >= 2 and isString(args[1]): fmt = args[1].sval
   case fmt
@@ -74,7 +71,7 @@ proc luaFileRead(args: varargs[LuaValue]): seq[LuaValue] =
     raise newException(LuaRuntimeError, "invalid format to 'read': " & fmt)
 
 proc luaFileLines(args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 1: raise newException(LuaRuntimeError, "bad argument #1 to 'lines' (file expected)")
+  checkruntime(args.len < 1,kindErrFmt(1,"lines","file"))
   let f = asFileHandle(args[0])
   let iterFn = proc(iterArgs: varargs[LuaValue]): seq[LuaValue] =
     if f.isClosed: return @[newLuaNil()]
@@ -86,7 +83,7 @@ proc luaFileLines(args: varargs[LuaValue]): seq[LuaValue] =
   return @[newNimFn(iterFn)]
 
 proc luaFileFlush(args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 1: raise newException(LuaRuntimeError, "bad argument #1 to 'flush' (file expected)")
+  checkruntime(args.len < 1,kindErrFmt(1,"flush","file"))
   let f = asFileHandle(args[0])
   f.stream.flush()
   return @[args[0]]
@@ -94,8 +91,7 @@ proc luaFileFlush(args: varargs[LuaValue]): seq[LuaValue] =
 # --- Library construction: self-registers BOTH `file` and `FileMode` on vm.globals ---
 
 proc luaFileRemove(args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 1 or not isString(args[0]):
-    raise newException(LuaRuntimeError, "bad argument #1 to 'remove' (string expected)")
+  checkruntime(args.len < 1 or not isString(args[0]),kindErrFmt(1,"remove","string"))
   try:
     removeFile(Path(args[0].sval))
     return @[newLuaBool(true)]
@@ -103,8 +99,7 @@ proc luaFileRemove(args: varargs[LuaValue]): seq[LuaValue] =
     return @[newLuaNil(), newLuaString(args[0].sval & ": " & e.msg)]
 
 proc luaFileRename(args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 2 or not isString(args[0]) or not isString(args[1]):
-    raise newException(LuaRuntimeError, "bad arguments to 'rename' (strings expected)")
+  checkruntime(args.len < 2 or not isString(args[0]) or not isString(args[1]), "bad arguments to 'rename' (strings expected)")
   try:
     moveFile(Path(args[0].sval), Path(args[1].sval))
     return @[newLuaBool(true)]
@@ -143,12 +138,10 @@ proc newFileLib*(vm: var VM) =
     result.mt = fileMT
 
   let luaFileOpen = proc(args: varargs[LuaValue]): seq[LuaValue] =
-    if args.len < 1 or not isString(args[0]):
-      raise newException(LuaRuntimeError, "bad argument #1 to 'open' (string expected)")
+    checkruntime(args.len < 1 or not isString(args[0]), kindErrFmt(1,"open","string"))
     let path = args[0].sval
 
-    if not isInteger(args[1]) or isLuaNil(enumGet(FileMode, args[1])):
-      raise newException(LuaRuntimeError, "bad argument #2 to 'open' (FileMode.xxx expected)")
+    checkruntime(not isInteger(args[1]) or isLuaNil(enumGet(FileMode, args[1])), kindErrFmt(2,"open","FileMode.xxx"))
     let modeInt = args[1].ival
   
 

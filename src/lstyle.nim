@@ -8,9 +8,9 @@ export Style, ForegroundColor, BackgroundColor
 proc emit(vm: var VM, code: string) {.inline.} =
   if vm.useColor: vm.output.write(code)
 
-proc styledArg*(vm: var VM, s: string)         = vm.output.write(s)
-proc styledArg*(vm: var VM, st: Style)         = vm.emit(ansiStyleCode(st))
-proc styledArg*(vm: var VM, sts: set[Style])   = (for st in sts: vm.emit(ansiStyleCode(st)))
+proc styledArg*(vm: var VM, s: string) = vm.output.write(s)
+proc styledArg*(vm: var VM, st: Style) = vm.emit(ansiStyleCode(st))
+proc styledArg*(vm: var VM, sts: set[Style]) = (for st in sts: vm.emit(ansiStyleCode(st)))
 proc styledArg*(vm: var VM, fg: ForegroundColor) = vm.emit(ansiForegroundColorCode(fg))
 proc styledArg*(vm: var VM, bg: BackgroundColor) = vm.emit(ansiStyleCode(bg.int))
 
