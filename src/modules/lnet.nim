@@ -13,10 +13,8 @@ let HTTPENUM = newLuaEnum(HTTPMETHODS)
 # multipart data out of scope
 # timeout puppy uses float32...we would need to cap this. Out of scope for now
 proc luaNetRequest(vm: var VM,args:varargs[LuaValue]): seq[LuaValue] =
-  if len(args) == 0:
-    raise newException(LuaRuntimeError,argErrFmtNumbered("request","1 to 5"))
-  if not isString(args[0]):
-    raise newException(LuaRuntimeError,kindErrFmt(1,"request","string"))
+  checkruntime(len(args) == 0,argErrFmtNumbered("request","1 to 5"))
+  checkruntime(not isString(args[0]),kindErrFmt(1,"request","string"))
   var url = args[0].sval
   var mthd = "get"
   var headers:HttpHeaders

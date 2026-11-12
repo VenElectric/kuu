@@ -29,8 +29,7 @@ proc searchPath(modName: string, pathTemplate: string): seq[string] =
     result.add(tmpl.replace("?", modPath))
 
 proc luaRequire*(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
-  if len(args) < 1 or not isString(args[0]):
-    raise newException(LuaRuntimeError, "bad argument #1 to 'require' (string expected)")
+  checkruntime(len(args) < 1 or not isString(args[0]),kindErrFmt(1,"require","string"))
   let modName = args[0].sval
 
   let pkg = vm.globals["package"]

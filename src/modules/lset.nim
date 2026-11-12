@@ -2,35 +2,26 @@ import std/tables
 import ../ltypes, ../lvalue, ../lerror,../lutil
 
 proc luaSetAdd(args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 2:
-    raise newException(LuaRuntimeError, "bad arguments to 'add' (set and value expected)")
-  if isLuaNil(args[1]):
-    raise newException(LuaRuntimeError, "cannot add nil to a set")
-  if not isSet(args[0]):
-    raise newException(LuaRuntimeError,"bad argument #1 to 'add' (set exepcted)")
+  checkruntime(args.len < 2,numArgErrFmt("add","set","value"))
+  checkruntime(isLuaNil(args[1]), "cannot add nil to a set")
+  checkruntime(not isSet(args[0]),kindErrFmt(1,"add","set"))
   args[0].tval[args[1]] = newLuaBool(true)
   return @[args[0]]   # returns self, so s:add(1):add(2):add(3) chains
 
 proc luaSetRemove(args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 2:
-    raise newException(LuaRuntimeError, "bad arguments to 'remove' (set and value expected)")
-  if not isSet(args[0]):
-    raise newException(LuaRuntimeError,"bad argument #1 to 'remove' (set exepcted)")
+  checkruntime(args.len < 2,numArgErrFmt("remove","set","value"))
+  checkruntime(not isSet(args[0]),kindErrFmt(1,"remove","set"))
   args[0].tval.del(args[1])
   return @[args[0]]
 
 proc luaSetContains(args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 2:
-    raise newException(LuaRuntimeError, "bad arguments to 'contains' (set and value expected)")
-  if not isSet(args[0]):
-    raise newException(LuaRuntimeError,"bad argument #1 to 'contains' (set exepcted)")
+  checkruntime(args.len < 2, numArgErrFmt("contains","set","value"))
+  checkruntime(not isSet(args[0]),kindErrFmt(1,"contains","set"))
   return @[newLuaBool(args[0].tval.hasKey(args[1]))]
 
 proc luaSetUnion(args: varargs[LuaValue]): seq[LuaValue] =
-  if not isSet(args[0]):
-    raise newException(LuaRuntimeError,"bad argument #1 to '|' (set exepcted)")
-  if not isSet(args[1]):
-    raise newException(LuaRuntimeError,"bad argument #2 to '|' (set exepcted)")
+  checkruntime(not isSet(args[0]),kindErrFmt(1,"|","set"))
+  checkruntime(not isSet(args[1]),kindErrFmt(2,"|","set"))
   let s = newLuaTable()
   s.mt = args[0].mt
   for k in args[0].tval.keys: s.tval[k] = newLuaBool(true)
@@ -38,10 +29,8 @@ proc luaSetUnion(args: varargs[LuaValue]): seq[LuaValue] =
   return @[s]
 
 proc luaSetIntersect(args: varargs[LuaValue]): seq[LuaValue] =
-  if not isSet(args[0]):
-    raise newException(LuaRuntimeError,"bad argument #1 to '&' (set exepcted)")
-  if not isSet(args[1]):
-    raise newException(LuaRuntimeError,"bad argument #2 to '&' (set exepcted)")
+  checkruntime(not isSet(args[0]),kindErrFmt(1,"&","set"))
+  checkruntime(not isSet(args[1]),kindErrFmt(2,"&","set"))
   let s = newLuaTable()
   s.mt = args[0].mt
   for k in args[0].tval.keys:
@@ -49,10 +38,8 @@ proc luaSetIntersect(args: varargs[LuaValue]): seq[LuaValue] =
   return @[s]
 
 proc luaSetDifference(args: varargs[LuaValue]): seq[LuaValue] =
-  if not isSet(args[0]):
-    raise newException(LuaRuntimeError,"bad argument #1 to '-' (set exepcted)")
-  if not isSet(args[1]):
-    raise newException(LuaRuntimeError,"bad argument #2 to '-' (set exepcted)")
+  checkruntime(not isSet(args[0]),kindErrFmt(1,"-","set"))
+  checkruntime(not isSet(args[1]),kindErrFmt(2,"-","set"))
   let s = newLuaTable()
   s.mt = args[0].mt
   for k in args[0].tval.keys:
@@ -60,10 +47,8 @@ proc luaSetDifference(args: varargs[LuaValue]): seq[LuaValue] =
   return @[s]
 
 proc luaSetSymDiff(args: varargs[LuaValue]): seq[LuaValue] =
-  if not isSet(args[0]):
-    raise newException(LuaRuntimeError,"bad argument #1 to '~' (set exepcted)")
-  if not isSet(args[1]):
-    raise newException(LuaRuntimeError,"bad argument #2 to '~' (set exepcted)")
+  checkruntime(not isSet(args[0]),kindErrFmt(1,"~","set"))
+  checkruntime(not isSet(args[1]),kindErrFmt(2,"~","set"))
   let s = newLuaTable()
   s.mt = args[0].mt
   for k in args[0].tval.keys:
@@ -78,24 +63,18 @@ proc setIsSubset(l, r: LuaValue): bool =
   return true
 
 proc luaSetLe(args: varargs[LuaValue]): seq[LuaValue] =
-  if not isSet(args[0]):
-    raise newException(LuaRuntimeError,"bad argument #1 to '<=' (set exepcted)")
-  if not isSet(args[1]):
-    raise newException(LuaRuntimeError,"bad argument #2 to '<=' (set exepcted)")
+  checkruntime(not isSet(args[0]),kindErrFmt(1,"<=","set"))
+  checkruntime(not isSet(args[1]),kindErrFmt(2,"<=","set"))
   return @[newLuaBool(setIsSubset(args[0], args[1]))]
 
 proc luaSetLt(args: varargs[LuaValue]): seq[LuaValue] =
-  if not isSet(args[0]):
-    raise newException(LuaRuntimeError,"bad argument #1 to '<' (set exepcted)")
-  if not isSet(args[1]):
-    raise newException(LuaRuntimeError,"bad argument #2 to '<' (set exepcted)")
+  checkruntime(not isSet(args[0]),kindErrFmt(1,"<","set"))
+  checkruntime(not isSet(args[1]),kindErrFmt(2,"<","set"))
   return @[newLuaBool(setIsSubset(args[0], args[1]) and args[0].tval.len != args[1].tval.len)]
 
 proc luaSetEq(args: varargs[LuaValue]): seq[LuaValue] =
-  if not isSet(args[0]):
-    raise newException(LuaRuntimeError,"bad argument #1 to '==' (set exepcted)")
-  if not isSet(args[1]):
-    raise newException(LuaRuntimeError,"bad argument #2 to '==' (set exepcted)")
+  checkruntime(not isSet(args[0]),kindErrFmt(1,"==","set"))
+  checkruntime(not isSet(args[1]),kindErrFmt(2,"==","set"))
   if args[0].tval.len != args[1].tval.len: return @[newLuaBool(false)]
   return @[newLuaBool(setIsSubset(args[0], args[1]))]
 

@@ -3,8 +3,7 @@ from os import execShellCmd,existsEnv,getEnv
 import ../lvalue,../ltypes,../lerror
 
 proc luaGetenv(args: varargs[LuaValue]): seq[LuaValue] =
-  if args.len < 1 or not isString(args[0]):
-    raise newException(LuaRuntimeError, "bad argument #1 to 'getenv' (string expected)")
+  checkruntime(args.len < 1 or not isString(args[0]),kindErrFmt(1,"getenv","string"))
   if existsEnv(args[0].sval):
     return @[newLuaString(getEnv(args[0].sval))]
   return @[newLuaNil()]
@@ -27,8 +26,7 @@ proc luaExit(args: varargs[LuaValue]): seq[LuaValue] =
 proc luaExecute(vm: var VM, args: varargs[LuaValue]): seq[LuaValue] =
   if args.len == 0:
     return @[newLuaBool(true)]   # no-arg execute just reports whether a shell exists
-  if not isString(args[0]):
-    raise newException(LuaRuntimeError, "bad argument #1 to 'execute' (string expected)")
+  checkruntime(not isString(args[0]),kindErrFmt(1,"execute","string"))
   let exitCode = execShellCmd(args[0].sval)
   return @[newLuaBool(exitCode == 0), newLuaString("exit"), newLuaInteger(exitCode)]
 
