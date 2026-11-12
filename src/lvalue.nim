@@ -6,6 +6,7 @@ proc `==`*(a, b: LuaValue): bool
 proc hash*(v: LuaValue): Hash
 proc newLuaString*(v: sink string): LuaValue
 proc newLuaTable*(): LuaValue
+proc newLuaNil*(): LuaValue
 
 let MTINDEX* = newLuaString("__index")
 let MTNEWINDEX* = newLuaString("__newindex")
@@ -112,6 +113,11 @@ proc hasMetatable*(v: LuaValue): bool = (isTable(v) or isUserData(v)) and not is
 proc hasMetaKey*(v: LuaValue, k: LuaValue): bool =
   not isNil(v) and v.hasMetatable() and v.mt.tval.hasKey(k) and not isNil(v.mt.tval[k])
 
+proc getMetaMethod*(v,key:LuaValue):LuaValue = 
+  if hasMetatable(v) and hasMetaKey(v,key):
+    return v.mt.tval[key]
+  else:
+    return newLuaNil()
 
 
 proc newLuaValue(kind: LuaKind): LuaValue = LuaValue(kind: kind)

@@ -9,3 +9,6 @@ src/lua54/testfiles
 .zed
 lua54
 luavm.log
+chunk
+kuu
+test.lua
